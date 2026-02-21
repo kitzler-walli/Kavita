@@ -1,0 +1,28 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: api
+    ports:
+      - "5010:5000"
+    volumes:
+      - kavita-config:/kavita/config
+      - kavita-data:/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: ui
+    ports:
+      - "4200:4200"
+    depends_on:
+      - api
+
+volumes:
+  kavita-config:
+  kavita-data:

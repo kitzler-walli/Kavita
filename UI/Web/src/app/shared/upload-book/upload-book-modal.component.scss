@@ -1,0 +1,28 @@
+.file-upload {
+  border: 2px dashed var(--bs-border-color);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  transition: border-color 0.2s;
+
+  &:hover {
+    border-color: var(--bs-primary);
+  }
+}
+
+.file-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--card-border-color, #dee2e6);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+}
+
+.table {
+  th, td {
+    vertical-align: middle;
+  }
+
+  .form-control-sm {
+    min-width: 100px;
+  }
+}

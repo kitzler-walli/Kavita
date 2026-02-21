@@ -41,6 +41,8 @@ import {PromotedIconComponent} from "../../../shared/_components/promoted-icon/p
 import {SettingsTabId} from "../../../sidenav/preference-nav/preference-nav.component";
 import {WikiLink} from "../../../_models/wiki";
 import {NavLinkModalComponent} from "../nav-link-modal/nav-link-modal.component";
+import {UploadBookModalComponent} from "../../../shared/upload-book/upload-book-modal.component";
+import {DefaultModalOptions} from "../../../_models/default-modal-options";
 import {MetadataService} from "../../../_services/metadata.service";
 import {Annotation} from "../../../book-reader/_models/annotations/annotation";
 import {QuillViewComponent} from "ngx-quill";
@@ -197,6 +199,10 @@ export class NavHeaderComponent {
 
   openLinkSelectionMenu() {
     this.modalService.open(NavLinkModalComponent, {fullscreen: 'sm'});
+  }
+
+  openUploadModal() {
+    this.modalService.open(UploadBookModalComponent, DefaultModalOptions);
   }
 
   protected readonly FilterField = FilterField;

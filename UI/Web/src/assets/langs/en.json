@@ -423,6 +423,41 @@
         "valid-email": "{{validation.valid-email}}"
     },
 
+    "upload-book-modal": {
+        "title": "Upload Books",
+        "close": "{{common.close}}",
+        "cancel": "{{common.cancel}}",
+        "drag-n-drop": "Drag & drop files or folders here",
+        "browse": "Browse",
+        "browse-files": "Browse Files",
+        "browse-folders": "Browse Folders",
+        "browse-folders-hint": "Browse again to add more folders",
+        "files-selected": "file(s) selected",
+        "clear-all": "Clear All",
+        "upload-btn": "Upload",
+        "supported-formats": ".cbz, .cbr, .epub, .pdf, .zip, .rar, .7z, .cb7, .cbt",
+        "uploading": "Uploading files...",
+        "uploading-file-of": "Uploading file {{current}} of {{total}}...",
+        "partial-upload-warning": "{{count}} file(s) failed to upload",
+        "target-library": "Target Library",
+        "select-library": "-- Select a Library --",
+        "filename": "Filename",
+        "series": "Series",
+        "volume": "Volume",
+        "chapter": "Chapter",
+        "status": "Status",
+        "series-placeholder": "Series name",
+        "volume-placeholder": "Vol.",
+        "chapter-placeholder": "Ch.",
+        "metadata-found": "Metadata found",
+        "needs-input": "Needs input",
+        "confirm": "Confirm & Place Files",
+        "confirming": "Placing files...",
+        "upload-failed": "Upload failed. Please try again.",
+        "confirm-failed": "Failed to place files. Please try again.",
+        "upload-success": "Files placed successfully. Library scan started."
+    },
+
     "client-device-card": {
         "auth-type-label": "Authentication Type",
         "browser-label": "Browser",
@@ -2192,7 +2227,8 @@
         "browse-genres": "Browse Genres",
         "browse-tags": "Browse Tags",
         "all-annotations": "Browse Annotations",
-        "my-profile": "My Profile"
+        "my-profile": "My Profile",
+        "upload": "Upload"
     },
 
     "client-device-auth-type-pipe": {

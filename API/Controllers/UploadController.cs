@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using API.Constants;
 using API.Data;
@@ -13,6 +15,7 @@ using API.Services.Tasks.Metadata;
 using API.SignalR;
 using Flurl.Http;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
@@ -32,11 +35,12 @@ public class UploadController : BaseApiController
     private readonly IReadingListService _readingListService;
     private readonly ILocalizationService _localizationService;
     private readonly ICoverDbService _coverDbService;
+    private readonly IUploadBookService _uploadBookService;
 
     /// <inheritdoc />
     public UploadController(IUnitOfWork unitOfWork, IImageService imageService, ILogger<UploadController> logger,
         ITaskScheduler taskScheduler, IDirectoryService directoryService, IEventHub eventHub, IReadingListService readingListService,
-        ILocalizationService localizationService, ICoverDbService coverDbService)
+        ILocalizationService localizationService, ICoverDbService coverDbService, IUploadBookService uploadBookService)
     {
         _unitOfWork = unitOfWork;
         _imageService = imageService;
@@ -47,6 +51,7 @@ public class UploadController : BaseApiController
         _readingListService = readingListService;
         _localizationService = localizationService;
         _coverDbService = coverDbService;
+        _uploadBookService = uploadBookService;
     }
 
     /// <summary>
@@ -501,6 +506,65 @@ public class UploadController : BaseApiController
         }
 
         return BadRequest(await _localizationService.Translate(UserId, "generic-cover-person-save"));
+    }
+
+    /// <summary>
+    /// Upload book/comic/manga files. Returns extracted metadata for review before placement.
+    /// </summary>
+    /// <param name="files">The files to upload</param>
+    /// <returns>Extracted metadata per file</returns>
+    [HttpPost("upload-books")]
+    [DisallowRole(PolicyConstants.ReadOnlyRole)]
+    [RequestSizeLimit(ControllerConstants.MaxBookUploadSizeBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = ControllerConstants.MaxBookUploadSizeBytes)]
+    public async Task<ActionResult<IList<UploadBookFileDto>>> UploadBooks([FromForm] IList<IFormFile> files)
+    {
+        if (files.Count == 0)
+            return BadRequest("No files provided");
+
+        try
+        {
+            var results = await _uploadBookService.ProcessUploadsAsync(files);
+
+            return Ok(results);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "There was an issue uploading book files");
+
+            return BadRequest("An error occurred while processing the uploaded files");
+        }
+    }
+
+    /// <summary>
+    /// Confirm placement of previously uploaded files into a library folder. Triggers a library scan.
+    /// </summary>
+    /// <param name="dto">The confirmation details including target library and file metadata</param>
+    /// <returns></returns>
+    [HttpPost("confirm-upload")]
+    [DisallowRole(PolicyConstants.ReadOnlyRole)]
+    public async Task<ActionResult> ConfirmUpload(ConfirmUploadDto dto)
+    {
+        try
+        {
+            await _uploadBookService.ConfirmUploadsAsync(dto, UserId);
+
+            return Ok();
+        }
+        catch (FileNotFoundException e)
+        {
+            return BadRequest(e.Message);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "There was an issue confirming upload for Library {LibraryId}", dto.LibraryId);
+
+            return BadRequest(e.Message);
+        }
     }
 
 }

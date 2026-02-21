@@ -1,0 +1,47 @@
+# Stage 1: Build and run the .NET API
+FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS api-build
+WORKDIR /src
+
+# Override global.json to allow the preview SDK available in this image
+COPY global.json ./
+RUN sed -i 's/"allowPrerelease": false/"allowPrerelease": true/' global.json
+
+COPY Kavita.sln ./
+COPY API/API.csproj API/
+COPY API.Tests/API.Tests.csproj API.Tests/
+COPY API.Benchmark/API.Benchmark.csproj API.Benchmark/
+COPY Kavita.Common/Kavita.Common.csproj Kavita.Common/
+RUN dotnet restore Kavita.sln
+
+COPY . .
+RUN sed -i 's/"allowPrerelease": false/"allowPrerelease": true/' global.json
+RUN dotnet publish API/API.csproj -c Debug -o /app -p:LangVersion=preview
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS api
+WORKDIR /kavita
+COPY --from=api-build /app .
+COPY API/config/appsettings.json /tmp/config/appsettings.json
+
+RUN apt-get update && apt-get install -y libicu-dev libgdiplus curl && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /kavita/config && cp /tmp/config/appsettings.json /kavita/config/appsettings.json
+
+EXPOSE 5000
+ENTRYPOINT ["dotnet", "API.dll"]
+
+# Stage 2: Build and serve Angular UI with proxy to API container
+FROM node:22 AS ui-build
+WORKDIR /app
+COPY UI/Web/package.json UI/Web/package-lock.json ./
+RUN npm ci
+
+FROM node:22 AS ui
+WORKDIR /app
+COPY --from=ui-build /app/node_modules ./node_modules
+COPY UI/Web/ .
+
+# Override proxy config to point to the api container
+RUN echo '{"\/api":{"target":"http://api:5000","secure":false,"changeOrigin":true},"\/hubs":{"target":"http://api:5000","secure":false,"changeOrigin":true,"ws":true},"\/oidc\/login":{"target":"http://api:5000","secure":false,"changeOrigin":true},"\/oidc\/logout":{"target":"http://api:5000","secure":false,"changeOrigin":true},"\/signin-oidc":{"target":"http://api:5000","secure":false,"changeOrigin":true},"\/signout-callback-oidc":{"target":"http://api:5000","secure":false,"changeOrigin":true}}' > proxy.conf.docker.json
+
+EXPOSE 4200
+CMD ["sh", "-c", "npm run cache-locale && npx ng serve --host 0.0.0.0 --proxy-config proxy.conf.docker.json --configuration proxy"]

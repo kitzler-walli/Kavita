@@ -1,0 +1,176 @@
+<ng-container *transloco="let t; prefix: 'upload-book-modal'">
+  <div class="modal-header">
+    <h4 class="modal-title">{{t('title')}}</h4>
+    <button type="button" class="btn-close" [attr.aria-label]="t('close')" (click)="close()"></button>
+  </div>
+
+  <div class="modal-body scrollable-modal">
+
+    <!-- Step 1: File Selection / Drop Zone -->
+    @if (step === UploadStep.Select) {
+      <ngx-file-drop (onFileDrop)="dropped($event)" [accept]="acceptableExtensions"
+                     [directory]="true" [multiple]="true"
+                     dropZoneClassName="file-upload" contentClassName="file-upload-zone">
+        <ng-template ngx-file-drop-content-tmp>
+          <div class="row g-0 mt-3 pb-3">
+            <div class="mx-auto">
+              <div class="row g-0 mb-3">
+                <i class="fa fa-file-upload mx-auto" style="font-size: 24px; width: 20px;" aria-hidden="true"></i>
+              </div>
+              <div class="d-flex justify-content-center">
+                <span>{{t('drag-n-drop')}}</span>
+              </div>
+              <div class="d-flex justify-content-center mt-2">
+                <small class="text-muted">{{t('supported-formats')}}</small>
+              </div>
+            </div>
+          </div>
+        </ng-template>
+      </ngx-file-drop>
+
+      <!-- Browse buttons -->
+      <div class="d-flex gap-2 mt-2 justify-content-center">
+        <button class="btn btn-outline-secondary btn-sm" (click)="fileInput.click()">
+          <i class="fa fa-file me-1" aria-hidden="true"></i>{{t('browse-files')}}
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" (click)="folderInput.click()">
+          <i class="fa fa-folder me-1" aria-hidden="true"></i>{{t('browse-folders')}}
+        </button>
+      </div>
+      <div class="d-flex justify-content-center mt-1">
+        <small class="text-muted">{{t('browse-folders-hint')}}</small>
+      </div>
+
+      <!-- Hidden native inputs -->
+      <input #fileInput type="file" [accept]="acceptableExtensions" multiple
+             (change)="onBrowseFiles($event)" style="display:none">
+      <input #folderInput type="file" webkitdirectory multiple
+             (change)="onBrowseFiles($event)" style="display:none">
+
+      <!-- Accumulated file list -->
+      @if (accumulatedFiles.length > 0) {
+        <div class="mt-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span>{{accumulatedFiles.length}} {{t('files-selected')}}</span>
+            <button class="btn btn-link btn-sm" (click)="clearFiles()">{{t('clear-all')}}</button>
+          </div>
+          <div class="file-list">
+            @for (file of accumulatedFiles; track $index) {
+              <div class="d-flex justify-content-between align-items-center py-1">
+                <span class="text-truncate">{{file.name}}</span>
+                <button class="btn btn-sm" (click)="removeFile($index)">
+                  <i class="fa fa-times" aria-hidden="true"></i>
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    }
+
+    <!-- Step 2: Uploading Progress -->
+    @if (step === UploadStep.Uploading) {
+      <div class="text-center py-4">
+        <p>{{t('uploading-file-of', {current: uploadFileIndex, total: uploadTotalFiles})}}</p>
+        <p class="text-muted text-truncate mb-2">{{uploadCurrentFile}}</p>
+        <div class="progress">
+          <div class="progress-bar progress-bar-striped progress-bar-animated"
+               role="progressbar"
+               [style.width.%]="uploadProgress"
+               [attr.aria-valuenow]="uploadProgress"
+               aria-valuemin="0" aria-valuemax="100">
+            {{uploadProgress}}%
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Step 3: Review Metadata -->
+    @if (step === UploadStep.Review) {
+      <!-- Library Selector -->
+      <div class="mb-3">
+        <label for="library-select" class="form-label fw-bold">{{t('target-library')}}</label>
+        <select id="library-select" class="form-select"
+                [(ngModel)]="selectedLibraryId"
+                [ngModelOptions]="{standalone: true}">
+          <option [ngValue]="null" disabled>{{t('select-library')}}</option>
+          @for (lib of libraries; track lib.id) {
+            <option [ngValue]="lib.id">{{lib.name}}</option>
+          }
+        </select>
+      </div>
+
+      <!-- File Table -->
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>{{t('filename')}}</th>
+              <th>{{t('series')}}</th>
+              <th>{{t('volume')}}</th>
+              <th>{{t('chapter')}}</th>
+              <th>{{t('status')}}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (file of uploadedFiles; track file.tempFileName; let i = $index) {
+              <tr>
+                <td class="text-truncate" style="max-width: 200px;" [title]="file.originalFileName">
+                  {{file.originalFileName}}
+                </td>
+                <td>
+                  <input type="text" class="form-control form-control-sm"
+                         [formControl]="$any(fileForms[i].controls['series'])"
+                         [placeholder]="t('series-placeholder')">
+                </td>
+                <td>
+                  <input type="text" class="form-control form-control-sm"
+                         [formControl]="$any(fileForms[i].controls['volume'])"
+                         [placeholder]="t('volume-placeholder')">
+                </td>
+                <td>
+                  <input type="text" class="form-control form-control-sm"
+                         [formControl]="$any(fileForms[i].controls['number'])"
+                         [placeholder]="t('chapter-placeholder')">
+                </td>
+                <td class="text-center">
+                  @if (hasMetadata(file)) {
+                    <i class="fa fa-check-circle text-success" [title]="t('metadata-found')"></i>
+                  } @else {
+                    <i class="fa fa-exclamation-triangle text-warning" [title]="t('needs-input')"></i>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    <!-- Step 4: Confirming -->
+    @if (step === UploadStep.Confirming) {
+      <div class="text-center py-4">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">{{t('confirming')}}</span>
+        </div>
+        <p class="mt-2">{{t('confirming')}}</p>
+      </div>
+    }
+  </div>
+
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="close()">{{t('cancel')}}</button>
+    @if (step === UploadStep.Select) {
+      <button type="button" class="btn btn-primary" (click)="startUpload()"
+              [disabled]="accumulatedFiles.length === 0">
+        {{t('upload-btn')}}
+      </button>
+    }
+    @if (step === UploadStep.Review) {
+      <button type="button" class="btn btn-primary" (click)="confirm()"
+              [disabled]="!allFormsValid()">
+        {{t('confirm')}}
+      </button>
+    }
+  </div>
+</ng-container>
