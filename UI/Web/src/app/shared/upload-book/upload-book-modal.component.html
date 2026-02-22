@@ -123,9 +123,18 @@
                   {{file.originalFileName}}
                 </td>
                 <td (click)="$event.stopPropagation()">
-                  <input type="text" class="form-control form-control-sm"
-                         [formControl]="$any(fileForms[i].controls['series'])"
-                         [placeholder]="t('series-placeholder')">
+                  <div class="d-flex gap-1">
+                    <input type="text" class="form-control form-control-sm"
+                           [formControl]="$any(fileForms[i].controls['series'])"
+                           [placeholder]="t('series-placeholder')">
+                    @if (uploadedFiles.length > 1) {
+                      <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0"
+                              [title]="t('apply-all')"
+                              (click)="applySeriestoAll(i)">
+                        <i class="fa fa-clone" aria-hidden="true"></i>
+                      </button>
+                    }
+                  </div>
                 </td>
                 <td (click)="$event.stopPropagation()">
                   <input type="text" class="form-control form-control-sm"

@@ -304,8 +304,9 @@ public class UploadBookService : IUploadBookService
 
     private void EmbedMetadata(string tempPath, ConfirmUploadFileDto file)
     {
-        // Only embed if there's actually enrichment data to write
-        if (string.IsNullOrWhiteSpace(file.Title) && string.IsNullOrWhiteSpace(file.Writer) &&
+        // Only embed if there's actually data to write
+        if (string.IsNullOrWhiteSpace(file.Series) && string.IsNullOrWhiteSpace(file.Volume) &&
+            string.IsNullOrWhiteSpace(file.Title) && string.IsNullOrWhiteSpace(file.Writer) &&
             string.IsNullOrWhiteSpace(file.Summary) && string.IsNullOrWhiteSpace(file.Publisher) &&
             string.IsNullOrWhiteSpace(file.Genre) && file.Year == 0)
         {

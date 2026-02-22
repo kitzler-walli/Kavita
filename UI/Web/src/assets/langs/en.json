@@ -468,7 +468,8 @@
         "year-label": "Year",
         "summary-label": "Summary",
         "target-path": "Target Path",
-        "no-detail-metadata": "No additional metadata available"
+        "no-detail-metadata": "No additional metadata available",
+        "apply-all": "Apply to all files"
     },
 
     "client-device-card": {

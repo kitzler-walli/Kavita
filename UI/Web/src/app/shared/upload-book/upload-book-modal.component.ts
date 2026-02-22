@@ -41,6 +41,7 @@ export class UploadBookModalComponent implements OnInit {
   private readonly cdRef = inject(ChangeDetectorRef);
 
   acceptableExtensions = '.cbz,.cbr,.zip,.rar,.epub,.pdf,.cb7,.cbt,.7z,.7zip,.tar.gz';
+  private readonly supportedExtSet = new Set(this.acceptableExtensions.split(','));
   step: UploadStep = UploadStep.Select;
   uploadProgress = 0;
   uploadCurrentFile = '';
@@ -64,17 +65,26 @@ export class UploadBookModalComponent implements OnInit {
 
   async dropped(entries: NgxFileDropEntry[]) {
     const files = await this.resolveEntries(entries);
-    this.accumulatedFiles = [...this.accumulatedFiles, ...files];
+    this.accumulatedFiles = [...this.accumulatedFiles, ...files.filter(f => this.isSupportedFile(f))];
     this.cdRef.markForCheck();
   }
 
   onBrowseFiles(event: Event) {
     const input = event.target as HTMLInputElement;
     if (input.files) {
-      this.accumulatedFiles = [...this.accumulatedFiles, ...Array.from(input.files)];
+      this.accumulatedFiles = [...this.accumulatedFiles, ...Array.from(input.files).filter(f => this.isSupportedFile(f))];
       input.value = '';
       this.cdRef.markForCheck();
     }
+  }
+
+  private isSupportedFile(file: File): boolean {
+    const name = file.name.toLowerCase();
+    // Handle compound extensions like .tar.gz
+    if (name.endsWith('.tar.gz')) return this.supportedExtSet.has('.tar.gz');
+    const dotIndex = name.lastIndexOf('.');
+    if (dotIndex < 0) return false;
+    return this.supportedExtSet.has(name.substring(dotIndex));
   }
 
   removeFile(index: number) {
@@ -195,6 +205,13 @@ export class UploadBookModalComponent implements OnInit {
         number: new FormControl(file.number),
       });
     });
+  }
+
+  applySeriestoAll(index: number) {
+    const series = this.fileForms[index].value.series;
+    for (const form of this.fileForms) {
+      form.controls['series'].setValue(series);
+    }
   }
 
   hasMetadata(file: UploadBookFileDto): boolean {

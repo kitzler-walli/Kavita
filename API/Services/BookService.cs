@@ -1378,7 +1378,7 @@ public partial class BookService : IBookService
                     }
                 }
 
-                if (!string.IsNullOrEmpty(series) && !string.IsNullOrEmpty(seriesIndex))
+                if (!string.IsNullOrEmpty(series))
                 {
                     if (string.IsNullOrEmpty(specialName))
                     {
@@ -1395,7 +1395,7 @@ public partial class BookService : IBookService
                         IsSpecial = Parser.HasSpecialMarker(filePath),
                         Series = series.Trim(),
                         SeriesSort = series.Trim(),
-                        Volumes = seriesIndex
+                        Volumes = !string.IsNullOrEmpty(seriesIndex) ? seriesIndex : Parser.LooseLeafVolume
                     };
 
                     return info;
@@ -1994,10 +1994,37 @@ public partial class BookService : IBookService
                 modified = true;
             }
 
+            // Helper: add or update a <meta name="..." content="..."/> element (EPUB 2 / Calibre style)
+            void SetMeta(string name, string value)
+            {
+                if (string.IsNullOrWhiteSpace(value)) return;
+                var existing = metadataEl.Elements()
+                    .FirstOrDefault(e => e.Name.LocalName == "meta" && e.Attribute("name")?.Value == name);
+
+                if (existing != null)
+                {
+                    if (existing.Attribute("content")?.Value == value) return;
+                    existing.SetAttributeValue("content", value);
+                }
+                else
+                {
+                    var opfNs = metadataEl.Name.Namespace;
+                    metadataEl.Add(new XElement(opfNs + "meta",
+                        new XAttribute("name", name),
+                        new XAttribute("content", value)));
+                }
+
+                modified = true;
+            }
+
             AddIfMissing("creator", comicInfo.Writer);
             AddIfMissing("description", comicInfo.Summary);
             AddIfMissing("publisher", comicInfo.Publisher);
             AddIfMissing("date", comicInfo.Year > 0 ? comicInfo.Year.ToString() : string.Empty);
+
+            // Series metadata: always write/overwrite calibre:series and calibre:series_index
+            SetMeta("calibre:series", comicInfo.Series);
+            SetMeta("calibre:series_index", comicInfo.Volume);
 
             // Genre/subjects: add each genre as a separate dc:subject if no subjects exist
             if (!string.IsNullOrWhiteSpace(comicInfo.Genre))
