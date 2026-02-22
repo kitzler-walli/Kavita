@@ -187,12 +187,12 @@ export class UploadBookModalComponent implements OnInit {
             this.selectedLibraryId = suggested.suggestedLibraryId;
           }
         }
-        this.cdRef.markForCheck();
+        this.cdRef.detectChanges();
       },
       error: () => {
         this.toastr.error(translate('upload-book-modal.upload-failed'));
         this.step = UploadStep.Select;
-        this.cdRef.markForCheck();
+        this.cdRef.detectChanges();
       }
     });
   }
