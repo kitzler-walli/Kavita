@@ -10,7 +10,12 @@ export interface UploadBookFileDto {
   title: string;
   writer: string;
   summary: string;
+  publisher: string;
+  genre: string;
+  year: number;
   suggestedLibraryId: number | null;
+  metadataSource: number;  // 0=Local, 1=ComicVine, 2=OpenLibrary, 3=AniList
+  externalUrl?: string;
 }
 
 export interface ConfirmUploadDto {
@@ -24,4 +29,12 @@ export interface ConfirmUploadFileDto {
   series: string;
   volume: string;
   number: string;
+  title: string;
+  writer: string;
+  summary: string;
+  publisher: string;
+  genre: string;
+  year: number;
+  metadataSource: number;
+  externalUrl?: string;
 }

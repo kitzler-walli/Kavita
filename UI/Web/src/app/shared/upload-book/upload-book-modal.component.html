@@ -114,33 +114,110 @@
           </thead>
           <tbody>
             @for (file of uploadedFiles; track file.tempFileName; let i = $index) {
-              <tr>
+              <tr class="file-row" (click)="toggleExpand(i)" [class.expanded]="expandedRows.has(i)">
                 <td class="text-truncate" style="max-width: 200px;" [title]="file.originalFileName">
+                  <i class="fa fa-sm me-1"
+                     [class.fa-chevron-right]="!expandedRows.has(i)"
+                     [class.fa-chevron-down]="expandedRows.has(i)"
+                     aria-hidden="true"></i>
                   {{file.originalFileName}}
                 </td>
-                <td>
+                <td (click)="$event.stopPropagation()">
                   <input type="text" class="form-control form-control-sm"
                          [formControl]="$any(fileForms[i].controls['series'])"
                          [placeholder]="t('series-placeholder')">
                 </td>
-                <td>
+                <td (click)="$event.stopPropagation()">
                   <input type="text" class="form-control form-control-sm"
                          [formControl]="$any(fileForms[i].controls['volume'])"
                          [placeholder]="t('volume-placeholder')">
                 </td>
-                <td>
+                <td (click)="$event.stopPropagation()">
                   <input type="text" class="form-control form-control-sm"
                          [formControl]="$any(fileForms[i].controls['number'])"
                          [placeholder]="t('chapter-placeholder')">
                 </td>
-                <td class="text-center">
-                  @if (hasMetadata(file)) {
+                <td class="text-center text-nowrap">
+                  @if (file.metadataSource === 1) {
+                    @if (file.externalUrl) {
+                      <a [href]="file.externalUrl" target="_blank" rel="noopener noreferrer"
+                         class="source-badge" (click)="$event.stopPropagation()">{{t('source-comicvine')}}</a>
+                    } @else {
+                      <span class="source-badge">{{t('source-comicvine')}}</span>
+                    }
+                  } @else if (file.metadataSource === 2) {
+                    @if (file.externalUrl) {
+                      <a [href]="file.externalUrl" target="_blank" rel="noopener noreferrer"
+                         class="source-badge" (click)="$event.stopPropagation()">{{t('source-openlibrary')}}</a>
+                    } @else {
+                      <span class="source-badge">{{t('source-openlibrary')}}</span>
+                    }
+                  } @else if (file.metadataSource === 3) {
+                    @if (file.externalUrl) {
+                      <a [href]="file.externalUrl" target="_blank" rel="noopener noreferrer"
+                         class="source-badge" (click)="$event.stopPropagation()">{{t('source-anilist')}}</a>
+                    } @else {
+                      <span class="source-badge">{{t('source-anilist')}}</span>
+                    }
+                  } @else if (hasMetadata(file)) {
                     <i class="fa fa-check-circle text-success" [title]="t('metadata-found')"></i>
                   } @else {
                     <i class="fa fa-exclamation-triangle text-warning" [title]="t('needs-input')"></i>
                   }
                 </td>
               </tr>
+              <!-- Expandable detail row -->
+              @if (expandedRows.has(i)) {
+                <tr class="detail-row">
+                  <td colspan="5">
+                    <div class="detail-content">
+                      @if (file.title) {
+                        <div class="detail-field">
+                          <span class="detail-label">{{t('book-title')}}:</span>
+                          <span>{{file.title}}</span>
+                        </div>
+                      }
+                      @if (file.writer) {
+                        <div class="detail-field">
+                          <span class="detail-label">{{t('writer-label')}}:</span>
+                          <span>{{file.writer}}</span>
+                        </div>
+                      }
+                      @if (file.publisher) {
+                        <div class="detail-field">
+                          <span class="detail-label">{{t('publisher-label')}}:</span>
+                          <span>{{file.publisher}}</span>
+                        </div>
+                      }
+                      @if (file.genre) {
+                        <div class="detail-field">
+                          <span class="detail-label">{{t('genre-label')}}:</span>
+                          <span>{{file.genre}}</span>
+                        </div>
+                      }
+                      @if (file.year) {
+                        <div class="detail-field">
+                          <span class="detail-label">{{t('year-label')}}:</span>
+                          <span>{{file.year}}</span>
+                        </div>
+                      }
+                      @if (file.summary) {
+                        <div class="detail-field">
+                          <span class="detail-label">{{t('summary-label')}}:</span>
+                          <span class="summary-text">{{file.summary.length > 200 ? file.summary.substring(0, 200) + '...' : file.summary}}</span>
+                        </div>
+                      }
+                      <div class="detail-field">
+                        <span class="detail-label">{{t('target-path')}}:</span>
+                        <span class="detail-value-muted">{{getTargetPath(file, i)}}</span>
+                      </div>
+                      @if (!hasDetailMetadata(file)) {
+                        <div class="detail-value-muted">{{t('no-detail-metadata')}}</div>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
             }
           </tbody>
         </table>

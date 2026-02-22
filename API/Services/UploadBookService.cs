@@ -9,6 +9,7 @@ using API.Data.Metadata;
 using API.Data.Repositories;
 using API.DTOs.Uploads;
 using API.Entities.Enums;
+using API.Services.MetadataEnrichment;
 using API.Services.Tasks.Scanner.Parser;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -37,6 +38,7 @@ public class UploadBookService : IUploadBookService
     private readonly IBookService _bookService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ITaskScheduler _taskScheduler;
+    private readonly IMetadataEnrichmentService _enrichmentService;
     private readonly ILogger<UploadBookService> _logger;
 
     private static readonly Regex SupportedExtensionRegex = new(
@@ -55,6 +57,7 @@ public class UploadBookService : IUploadBookService
         IBookService bookService,
         IUnitOfWork unitOfWork,
         ITaskScheduler taskScheduler,
+        IMetadataEnrichmentService enrichmentService,
         ILogger<UploadBookService> logger)
     {
         _directoryService = directoryService;
@@ -62,6 +65,7 @@ public class UploadBookService : IUploadBookService
         _bookService = bookService;
         _unitOfWork = unitOfWork;
         _taskScheduler = taskScheduler;
+        _enrichmentService = enrichmentService;
         _logger = logger;
     }
 
@@ -70,6 +74,17 @@ public class UploadBookService : IUploadBookService
         var results = new List<UploadBookFileDto>();
         var libraries = (await _unitOfWork.LibraryRepository.GetLibrariesAsync(
             LibraryIncludes.Folders | LibraryIncludes.FileTypes, track: false)).ToList();
+
+        var enrichmentEnabled = false;
+        try
+        {
+            var enrichmentSetting = await _unitOfWork.SettingsRepository.GetSettingAsync(ServerSettingKey.EnableUploadEnrichment);
+            enrichmentEnabled = enrichmentSetting?.Value?.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
+        }
+        catch (Exception)
+        {
+            // Setting may not exist yet (pre-migration), default to disabled
+        }
 
         foreach (var file in files)
         {
@@ -101,10 +116,76 @@ public class UploadBookService : IUploadBookService
             var title = comicInfo?.Title ?? string.Empty;
             var writer = comicInfo?.Writer ?? string.Empty;
             var summary = comicInfo?.Summary ?? string.Empty;
+            var publisher = comicInfo?.Publisher ?? string.Empty;
+            var genre = comicInfo?.Genre ?? string.Empty;
+            var year = comicInfo?.Year ?? 0;
 
+            var seriesFromFile = false;
             if (string.IsNullOrWhiteSpace(series))
             {
-                series = Path.GetFileNameWithoutExtension(file.FileName);
+                // Clean the filename to get a better series guess (strip volume numbers,
+                // parenthetical tags like language/publisher/group)
+                series = SearchTermCleaner.Clean(Path.GetFileNameWithoutExtension(file.FileName));
+                seriesFromFile = true;
+            }
+
+            // Try external metadata enrichment for empty fields
+            var metadataSource = (int)MetadataSource.Local;
+            string? externalUrl = null;
+
+            if (enrichmentEnabled)
+            {
+                try
+                {
+                    var enrichContext = new EnrichmentContext
+                    {
+                        Format = format,
+                        Series = series,
+                        Title = title,
+                        Writer = writer,
+                        Volume = volume,
+                        Number = number,
+                        Isbn = comicInfo?.Isbn ?? string.Empty,
+                        Summary = summary,
+                        Publisher = comicInfo?.Publisher ?? string.Empty,
+                        Genre = comicInfo?.Genre ?? string.Empty,
+                        Year = comicInfo?.Year ?? 0
+                    };
+
+                    var enrichResult = await _enrichmentService.EnrichAsync(enrichContext);
+                    if (enrichResult.Success)
+                    {
+                        // Fill only empty fields — never overwrite local metadata
+                        // Exception: if the series was derived from the filename, prefer
+                        // the canonical name from the enrichment provider
+                        if (!string.IsNullOrWhiteSpace(enrichResult.Series) &&
+                            (string.IsNullOrWhiteSpace(series) || seriesFromFile))
+                            series = enrichResult.Series;
+                        if (string.IsNullOrWhiteSpace(title) && !string.IsNullOrWhiteSpace(enrichResult.Title))
+                            title = enrichResult.Title;
+                        if (string.IsNullOrWhiteSpace(writer) && !string.IsNullOrWhiteSpace(enrichResult.Writer))
+                            writer = enrichResult.Writer;
+                        if (string.IsNullOrWhiteSpace(volume) && !string.IsNullOrWhiteSpace(enrichResult.Volume))
+                            volume = enrichResult.Volume;
+                        if (string.IsNullOrWhiteSpace(number) && !string.IsNullOrWhiteSpace(enrichResult.Number))
+                            number = enrichResult.Number;
+                        if (string.IsNullOrWhiteSpace(summary) && !string.IsNullOrWhiteSpace(enrichResult.Summary))
+                            summary = enrichResult.Summary;
+                        if (string.IsNullOrWhiteSpace(publisher) && !string.IsNullOrWhiteSpace(enrichResult.Publisher))
+                            publisher = enrichResult.Publisher;
+                        if (string.IsNullOrWhiteSpace(genre) && !string.IsNullOrWhiteSpace(enrichResult.Genre))
+                            genre = enrichResult.Genre;
+                        if (year == 0 && enrichResult.Year is > 0)
+                            year = enrichResult.Year.Value;
+
+                        metadataSource = (int)enrichResult.Source;
+                        externalUrl = enrichResult.ExternalUrl;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Metadata enrichment failed for {FileName}, using local metadata", file.FileName);
+                }
             }
 
             // Suggest library based on file type
@@ -121,7 +202,12 @@ public class UploadBookService : IUploadBookService
                 Title = title,
                 Writer = writer,
                 Summary = summary,
-                SuggestedLibraryId = suggestedLibraryId
+                Publisher = publisher,
+                Genre = genre,
+                Year = year,
+                SuggestedLibraryId = suggestedLibraryId,
+                MetadataSource = metadataSource,
+                ExternalUrl = externalUrl
             });
         }
 
@@ -152,6 +238,9 @@ public class UploadBookService : IUploadBookService
             var sanitizedSeries = SanitizeDirectoryName(file.Series);
             if (string.IsNullOrWhiteSpace(sanitizedSeries))
                 throw new ArgumentException($"Invalid series name for file: {file.OriginalFileName}");
+
+            // Embed enrichment metadata into the file before moving
+            EmbedMetadata(tempPath, file);
 
             var targetDir = Path.Combine(libraryFolder, sanitizedSeries);
             _directoryService.ExistOrCreate(targetDir);
@@ -211,5 +300,52 @@ public class UploadBookService : IUploadBookService
         var sanitized = InvalidPathCharsRegex.Replace(name.Trim(), "_");
 
         return sanitized;
+    }
+
+    private void EmbedMetadata(string tempPath, ConfirmUploadFileDto file)
+    {
+        // Only embed if there's actually enrichment data to write
+        if (string.IsNullOrWhiteSpace(file.Title) && string.IsNullOrWhiteSpace(file.Writer) &&
+            string.IsNullOrWhiteSpace(file.Summary) && string.IsNullOrWhiteSpace(file.Publisher) &&
+            string.IsNullOrWhiteSpace(file.Genre) && file.Year == 0)
+        {
+            return;
+        }
+
+        var comicInfo = new ComicInfo
+        {
+            Title = file.Title,
+            Series = file.Series,
+            Volume = file.Volume,
+            Number = file.Number,
+            Writer = file.Writer,
+            Summary = file.Summary,
+            Publisher = file.Publisher,
+            Genre = file.Genre,
+            Year = file.Year,
+            Web = file.ExternalUrl ?? string.Empty
+        };
+
+        var format = Parser.ParseFormat(tempPath);
+        switch (format)
+        {
+            case MangaFormat.Archive:
+                if (!_archiveService.WriteComicInfo(tempPath, comicInfo))
+                {
+                    _logger.LogWarning("Could not embed metadata into archive {FileName} — format may not support writing",
+                        file.OriginalFileName);
+                }
+                break;
+            case MangaFormat.Epub:
+                if (!_bookService.WriteEpubMetadata(tempPath, comicInfo))
+                {
+                    _logger.LogWarning("Could not embed metadata into EPUB {FileName}", file.OriginalFileName);
+                }
+                break;
+            default:
+                _logger.LogInformation("Skipping metadata embedding for {FileName} — format {Format} does not support writing",
+                    file.OriginalFileName, format);
+                break;
+        }
     }
 }

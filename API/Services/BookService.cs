@@ -2,10 +2,12 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using API.Data;
 using API.Data.Metadata;
 using API.DTOs.Reader;
@@ -64,6 +66,10 @@ public interface IBookService
     Task<int> GetWordCountBetweenXPaths(string bookFilePath, string startXpath, int startPage, string endXpath, int endPage);
     Task<string> CopyImageToTempFromBook(int chapterId, BookmarkDto bookmarkDto, string cachedBookPath);
     Task<BookResourceResultDto> GetResourceAsync(string bookFilePath, string requestedKey);
+    /// <summary>
+    /// Writes/merges metadata into an EPUB file's OPF, filling only empty dc: elements.
+    /// </summary>
+    bool WriteEpubMetadata(string filePath, ComicInfo comicInfo);
 }
 
 public partial class BookService : IBookService
@@ -1906,6 +1912,129 @@ public partial class BookService : IBookService
         foreach (var error in doc.ParseErrors)
         {
             _logger.LogError("Line {LineNumber}, Reason: {Reason}", error.Line, error.Reason);
+        }
+    }
+
+    /// <inheritdoc />
+    public bool WriteEpubMetadata(string filePath, ComicInfo comicInfo)
+    {
+        try
+        {
+            if (!Parser.IsEpub(filePath)) return false;
+
+            using var zip = ZipFile.Open(filePath, ZipArchiveMode.Update);
+
+            // Find OPF path from META-INF/container.xml
+            var containerEntry = zip.GetEntry("META-INF/container.xml");
+            if (containerEntry == null)
+            {
+                _logger.LogWarning("[WriteEpubMetadata] No META-INF/container.xml in {FilePath}", filePath);
+
+                return false;
+            }
+
+            string opfPath;
+            using (var containerStream = containerEntry.Open())
+            {
+                var containerDoc = XDocument.Load(containerStream);
+                var containerNs = containerDoc.Root?.GetDefaultNamespace() ?? XNamespace.None;
+                opfPath = containerDoc.Descendants(containerNs + "rootfile")
+                    .FirstOrDefault()?.Attribute("full-path")?.Value ?? string.Empty;
+            }
+
+            if (string.IsNullOrEmpty(opfPath))
+            {
+                _logger.LogWarning("[WriteEpubMetadata] No rootfile found in container.xml for {FilePath}", filePath);
+
+                return false;
+            }
+
+            var opfEntry = zip.GetEntry(opfPath);
+            if (opfEntry == null)
+            {
+                _logger.LogWarning("[WriteEpubMetadata] OPF file not found at {OpfPath} in {FilePath}", opfPath, filePath);
+
+                return false;
+            }
+
+            // Read the OPF
+            XDocument opfDoc;
+            using (var opfStream = opfEntry.Open())
+            {
+                opfDoc = XDocument.Load(opfStream);
+            }
+
+            XNamespace dc = "http://purl.org/dc/elements/1.1/";
+            var metadataEl = opfDoc.Descendants().FirstOrDefault(e => e.Name.LocalName == "metadata");
+            if (metadataEl == null)
+            {
+                _logger.LogWarning("[WriteEpubMetadata] No <metadata> element in OPF for {FilePath}", filePath);
+
+                return false;
+            }
+
+            var modified = false;
+
+            // Helper: add dc element if none exists with non-empty content
+            void AddIfMissing(string localName, string value)
+            {
+                if (string.IsNullOrWhiteSpace(value)) return;
+                var existing = metadataEl.Elements(dc + localName).FirstOrDefault();
+                if (existing != null && !string.IsNullOrWhiteSpace(existing.Value)) return;
+
+                if (existing != null)
+                {
+                    existing.Value = value;
+                }
+                else
+                {
+                    metadataEl.Add(new XElement(dc + localName, value));
+                }
+
+                modified = true;
+            }
+
+            AddIfMissing("creator", comicInfo.Writer);
+            AddIfMissing("description", comicInfo.Summary);
+            AddIfMissing("publisher", comicInfo.Publisher);
+            AddIfMissing("date", comicInfo.Year > 0 ? comicInfo.Year.ToString() : string.Empty);
+
+            // Genre/subjects: add each genre as a separate dc:subject if no subjects exist
+            if (!string.IsNullOrWhiteSpace(comicInfo.Genre))
+            {
+                var existingSubjects = metadataEl.Elements(dc + "subject").ToList();
+                if (existingSubjects.Count == 0 || existingSubjects.All(s => string.IsNullOrWhiteSpace(s.Value)))
+                {
+                    // Remove empty subjects
+                    foreach (var s in existingSubjects) s.Remove();
+
+                    var genres = comicInfo.Genre.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    foreach (var genre in genres)
+                    {
+                        metadataEl.Add(new XElement(dc + "subject", genre));
+                    }
+
+                    if (genres.Length > 0) modified = true;
+                }
+            }
+
+            if (!modified) return true;
+
+            // Write back the OPF — delete and recreate the entry
+            opfEntry.Delete();
+            var newOpfEntry = zip.CreateEntry(opfPath);
+            using (var newStream = newOpfEntry.Open())
+            {
+                opfDoc.Save(newStream);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[WriteEpubMetadata] Failed to write metadata to {FilePath}", filePath);
+
+            return false;
         }
     }
 

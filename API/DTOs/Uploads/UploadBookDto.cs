@@ -22,8 +22,21 @@ public sealed record UploadBookFileDto
     public string Title { get; set; } = string.Empty;
     public string Writer { get; set; } = string.Empty;
     public string Summary { get; set; } = string.Empty;
+    public string Publisher { get; set; } = string.Empty;
+    public string Genre { get; set; } = string.Empty;
+    public int Year { get; set; }
 
     public int? SuggestedLibraryId { get; set; }
+
+    /// <summary>
+    /// Source of the metadata: 0=Local, 1=ComicVine, 2=OpenLibrary, 3=AniList
+    /// </summary>
+    public int MetadataSource { get; set; }
+
+    /// <summary>
+    /// External URL from the enrichment provider (e.g. ComicVine issue page, AniList entry)
+    /// </summary>
+    public string? ExternalUrl { get; set; }
 }
 
 /// <summary>
@@ -51,4 +64,22 @@ public sealed record ConfirmUploadFileDto
 
     public string Volume { get; set; } = string.Empty;
     public string Number { get; set; } = string.Empty;
+
+    // Enrichment metadata to embed into the file before placing
+    public string Title { get; set; } = string.Empty;
+    public string Writer { get; set; } = string.Empty;
+    public string Summary { get; set; } = string.Empty;
+    public string Publisher { get; set; } = string.Empty;
+    public string Genre { get; set; } = string.Empty;
+    public int Year { get; set; }
+
+    /// <summary>
+    /// Source of the metadata: 0=Local, 1=ComicVine, 2=OpenLibrary, 3=AniList
+    /// </summary>
+    public int MetadataSource { get; set; }
+
+    /// <summary>
+    /// External URL from the enrichment provider
+    /// </summary>
+    public string? ExternalUrl { get; set; }
 }

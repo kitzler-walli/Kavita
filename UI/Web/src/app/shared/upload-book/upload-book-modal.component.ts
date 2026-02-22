@@ -53,6 +53,7 @@ export class UploadBookModalComponent implements OnInit {
   accumulatedFiles: File[] = [];
   uploadedFiles: UploadBookFileDto[] = [];
   fileForms: FormGroup[] = [];
+  expandedRows = new Set<number>();
 
   ngOnInit(): void {
     this.libraryService.getLibraries().subscribe(libs => {
@@ -86,6 +87,26 @@ export class UploadBookModalComponent implements OnInit {
 
   startUpload() {
     this.uploadFiles(this.accumulatedFiles);
+  }
+
+  toggleExpand(index: number) {
+    if (this.expandedRows.has(index)) {
+      this.expandedRows.delete(index);
+    } else {
+      this.expandedRows.add(index);
+    }
+  }
+
+  getTargetPath(file: UploadBookFileDto, index: number): string {
+    const seriesName = this.fileForms[index]?.value?.series || file.series || '?';
+    const lib = this.libraries.find(l => l.id === this.selectedLibraryId);
+    const libFolder = lib?.folders?.[0] || '(library folder)';
+
+    return `${libFolder}/${seriesName}/${file.originalFileName}`;
+  }
+
+  hasDetailMetadata(file: UploadBookFileDto): boolean {
+    return !!(file.title || file.writer || file.publisher || file.genre || file.year || file.summary);
   }
 
   private async resolveEntries(entries: NgxFileDropEntry[]): Promise<File[]> {
@@ -196,6 +217,14 @@ export class UploadBookModalComponent implements OnInit {
       series: this.fileForms[i].value.series,
       volume: this.fileForms[i].value.volume || '',
       number: this.fileForms[i].value.number || '',
+      title: file.title,
+      writer: file.writer,
+      summary: file.summary,
+      publisher: file.publisher,
+      genre: file.genre,
+      year: file.year,
+      metadataSource: file.metadataSource,
+      externalUrl: file.externalUrl,
     }));
 
     this.uploadService.confirmUpload({

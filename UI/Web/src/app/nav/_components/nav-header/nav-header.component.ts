@@ -202,7 +202,7 @@ export class NavHeaderComponent {
   }
 
   openUploadModal() {
-    this.modalService.open(UploadBookModalComponent, DefaultModalOptions);
+    this.modalService.open(UploadBookModalComponent, {...DefaultModalOptions, backdrop: 'static', keyboard: false});
   }
 
   protected readonly FilterField = FilterField;

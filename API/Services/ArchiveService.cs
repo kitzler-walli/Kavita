@@ -29,6 +29,11 @@ public interface IArchiveService
     bool IsValidArchive(string archivePath);
     ComicInfo? GetComicInfo(string archivePath);
     ArchiveLibrary CanOpen(string archivePath);
+    /// <summary>
+    /// Writes/merges ComicInfo.xml into a ZIP/CBZ archive, filling only empty fields.
+    /// Returns false for non-ZIP formats (CBR/RAR/7z).
+    /// </summary>
+    bool WriteComicInfo(string archivePath, ComicInfo comicInfo);
     bool ArchiveNeedsFlattening(ZipArchive archive);
     /// <summary>
     /// Creates a zip file form the listed files and outputs to the temp folder. This will combine into one zip of multiple zips.
@@ -512,6 +517,97 @@ public class ArchiveService : IArchiveService
 
     }
 
+    /// <inheritdoc />
+    public bool WriteComicInfo(string archivePath, ComicInfo comicInfo)
+    {
+        try
+        {
+            var libraryHandler = CanOpen(archivePath);
+            if (libraryHandler != ArchiveLibrary.Default)
+            {
+                _logger.LogWarning("[WriteComicInfo] Cannot write to non-ZIP archive: {Path} (handler={Handler})",
+                    archivePath, libraryHandler);
+
+                return false;
+            }
+
+            using var archive = ZipFile.Open(archivePath, ZipArchiveMode.Update);
+
+            // Read existing ComicInfo.xml if present
+            var existingEntry = archive.Entries.FirstOrDefault(x => (x.FullName ?? x.Name) == ComicInfoFilename) ??
+                archive.Entries.FirstOrDefault(x => IsComicInfoArchiveEntry(x.FullName, x.Name));
+
+            ComicInfo merged;
+            if (existingEntry != null)
+            {
+                using (var stream = existingEntry.Open())
+                {
+                    var existing = Deserialize(stream);
+                    merged = existing ?? new ComicInfo();
+                }
+
+                // Merge: fill only empty fields from the provided comicInfo
+                MergeComicInfo(merged, comicInfo);
+
+                // Delete the old entry so we can write a fresh one
+                existingEntry.Delete();
+            }
+            else
+            {
+                merged = comicInfo;
+            }
+
+            // Serialize and write
+            var newEntry = archive.CreateEntry(ComicInfoFilename);
+            using (var entryStream = newEntry.Open())
+            {
+                SerializeComicInfo(merged, entryStream);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[WriteComicInfo] Failed to write ComicInfo.xml to {Path}", archivePath);
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Merges source into target, only filling fields that are empty/default in the target.
+    /// </summary>
+    private static void MergeComicInfo(ComicInfo target, ComicInfo source)
+    {
+        if (string.IsNullOrWhiteSpace(target.Title) && !string.IsNullOrWhiteSpace(source.Title))
+            target.Title = source.Title;
+        if (string.IsNullOrWhiteSpace(target.Series) && !string.IsNullOrWhiteSpace(source.Series))
+            target.Series = source.Series;
+        if (string.IsNullOrWhiteSpace(target.Volume) && !string.IsNullOrWhiteSpace(source.Volume))
+            target.Volume = source.Volume;
+        if (string.IsNullOrWhiteSpace(target.Number) && !string.IsNullOrWhiteSpace(source.Number))
+            target.Number = source.Number;
+        if (string.IsNullOrWhiteSpace(target.Writer) && !string.IsNullOrWhiteSpace(source.Writer))
+            target.Writer = source.Writer;
+        if (string.IsNullOrWhiteSpace(target.Summary) && !string.IsNullOrWhiteSpace(source.Summary))
+            target.Summary = source.Summary;
+        if (string.IsNullOrWhiteSpace(target.Publisher) && !string.IsNullOrWhiteSpace(source.Publisher))
+            target.Publisher = source.Publisher;
+        if (string.IsNullOrWhiteSpace(target.Genre) && !string.IsNullOrWhiteSpace(source.Genre))
+            target.Genre = source.Genre;
+        if (target.Year == 0 && source.Year > 0)
+            target.Year = source.Year;
+        if (string.IsNullOrWhiteSpace(target.Web) && !string.IsNullOrWhiteSpace(source.Web))
+            target.Web = source.Web;
+    }
+
+    private static void SerializeComicInfo(ComicInfo info, Stream stream)
+    {
+        var serializer = new XmlSerializer(typeof(ComicInfo));
+        var ns = new XmlSerializerNamespaces();
+        ns.Add(string.Empty, string.Empty); // Suppress xmlns:xsi/xsd
+        serializer.Serialize(stream, info, ns);
+    }
 
     private void ExtractArchiveEntities(IEnumerable<IArchiveEntry> entries, string extractPath)
     {
