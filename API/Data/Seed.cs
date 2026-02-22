@@ -423,6 +423,8 @@ public static class Seed
                 new() {Key = ServerSettingKey.FirstInstallVersion, Value = BuildInfo.Version.ToString()},
                 new() {Key = ServerSettingKey.FirstInstallDate, Value = DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)},
                 new() {Key = ServerSettingKey.StatsApiHits, Value = "0"},
+                new() {Key = ServerSettingKey.ComicVineApiKey, Value = string.Empty},
+                new() {Key = ServerSettingKey.EnableUploadEnrichment, Value = "true"},
             }.ToArray()
         ];
 

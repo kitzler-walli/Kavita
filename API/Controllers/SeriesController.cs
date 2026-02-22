@@ -107,12 +107,12 @@ public class SeriesController : BaseApiController
     /// <returns>If the series was deleted or not</returns>
     [Authorize(Policy = PolicyGroups.AdminPolicy)]
     [HttpDelete("{seriesId}")]
-    public async Task<ActionResult<bool>> DeleteSeries(int seriesId)
+    public async Task<ActionResult<bool>> DeleteSeries(int seriesId, [FromQuery] bool deleteFiles = false)
     {
         var username = Username!;
-        _logger.LogInformation("Series {SeriesId} is being deleted by {UserName}", seriesId, username);
+        _logger.LogInformation("Series {SeriesId} is being deleted by {UserName} (deleteFiles={DeleteFiles})", seriesId, username, deleteFiles);
 
-        return Ok(await _seriesService.DeleteMultipleSeries([seriesId]));
+        return Ok(await _seriesService.DeleteMultipleSeries([seriesId], deleteFiles));
     }
 
     [Authorize(Policy = PolicyGroups.AdminPolicy)]
@@ -120,9 +120,9 @@ public class SeriesController : BaseApiController
     public async Task<ActionResult> DeleteMultipleSeries(DeleteSeriesDto dto)
     {
         var username = Username!;
-        _logger.LogInformation("Series {@SeriesId} is being deleted by {UserName}", dto.SeriesIds, username);
+        _logger.LogInformation("Series {@SeriesId} is being deleted by {UserName} (deleteFiles={DeleteFiles})", dto.SeriesIds, username, dto.DeleteFiles);
 
-        if (await _seriesService.DeleteMultipleSeries(dto.SeriesIds)) return Ok(true);
+        if (await _seriesService.DeleteMultipleSeries(dto.SeriesIds, dto.DeleteFiles)) return Ok(true);
 
         return BadRequest(await _localizationService.Translate(UserId, "generic-series-delete"));
     }

@@ -20,6 +20,7 @@ export class ConfirmDialogComponent implements OnInit {
   config!: ConfirmConfig;
   formGroup = new FormGroup({
     'prompt': new FormControl('', []),
+    'checkbox': new FormControl(false, []),
   })
 
   ngOnInit(): void {
@@ -44,6 +45,7 @@ export class ConfirmDialogComponent implements OnInit {
       this.modal.close(button.type === 'primary' ? this.formGroup.get('prompt')?.value : '');
       return;
     }
+    this.config.checkboxChecked = !!this.formGroup.get('checkbox')?.value;
     this.modal.close(button.type === 'primary');
   }
 

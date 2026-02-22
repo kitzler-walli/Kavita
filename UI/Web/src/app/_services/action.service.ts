@@ -8,6 +8,7 @@ import {
   EditReadingListModalComponent
 } from '../reading-list/_modals/edit-reading-list-modal/edit-reading-list-modal.component';
 import {ConfirmService} from '../shared/confirm.service';
+import {ConfirmConfig} from '../shared/confirm-dialog/_models/confirm-config';
 import {
   LibrarySettingsModalComponent
 } from '../sidenav/_modals/library-settings-modal/library-settings-modal.component';
@@ -663,13 +664,21 @@ export class ActionService {
    * @param callback - Optional callback once complete
    */
    async deleteMultipleSeries(seriesIds: Array<Series>, callback?: BooleanActionCallback) {
-    if (!await this.confirmService.confirm(translate('toasts.confirm-delete-multiple-series', {count: seriesIds.length}))) {
+    const config = new ConfirmConfig();
+    config.header = 'confirm.confirm';
+    config.content = translate('toasts.confirm-delete-multiple-series', {count: seriesIds.length});
+    config.checkboxText = translate('toasts.delete-files-checkbox');
+    config.buttons = [
+      {text: 'confirm.cancel', type: 'secondary'},
+      {text: 'confirm.confirm', type: 'primary'},
+    ];
+    if (!await this.confirmService.confirm('', config)) {
       if (callback) {
         callback(false);
       }
       return;
     }
-    this.seriesService.deleteMultipleSeries(seriesIds.map(s => s.id)).subscribe(res => {
+    this.seriesService.deleteMultipleSeries(seriesIds.map(s => s.id), config.checkboxChecked).subscribe(res => {
       if (res) {
         this.toastr.success(translate('toasts.series-deleted'));
       } else {
@@ -683,14 +692,22 @@ export class ActionService {
   }
 
   async deleteSeries(series: Series, callback?: BooleanActionCallback) {
-    if (!await this.confirmService.confirm(translate('toasts.confirm-delete-series'))) {
+    const config = new ConfirmConfig();
+    config.header = 'confirm.confirm';
+    config.content = translate('toasts.confirm-delete-series');
+    config.checkboxText = translate('toasts.delete-files-checkbox');
+    config.buttons = [
+      {text: 'confirm.cancel', type: 'secondary'},
+      {text: 'confirm.confirm', type: 'primary'},
+    ];
+    if (!await this.confirmService.confirm('', config)) {
       if (callback) {
         callback(false);
       }
       return;
     }
 
-    this.seriesService.delete(series.id).subscribe((res: boolean) => {
+    this.seriesService.delete(series.id, config.checkboxChecked).subscribe((res: boolean) => {
       if (callback) {
         if (res) {
           this.toastr.success(translate('toasts.series-deleted'));

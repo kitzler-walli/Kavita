@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using API.Comparators;
@@ -33,7 +34,7 @@ public interface ISeriesService
 {
     Task<SeriesDetailDto> GetSeriesDetail(int seriesId, int userId);
     Task<bool> UpdateSeriesMetadata(UpdateSeriesMetadataDto updateSeriesMetadataDto);
-    Task<bool> DeleteMultipleSeries(IList<int> seriesIds);
+    Task<bool> DeleteMultipleSeries(IList<int> seriesIds, bool deleteFiles = false);
     Task<bool> UpdateRelatedSeries(UpdateRelatedSeriesDto dto);
     Task<RelatedSeriesDto> GetRelatedSeries(int userId, int seriesId);
     Task<NextExpectedChapterDto> GetEstimatedChapterCreationDate(int seriesId, int userId);
@@ -50,6 +51,7 @@ public class SeriesService : ISeriesService
     private readonly ILocalizationService _localizationService;
     private readonly IReadingListService _readingListService;
     private readonly IEntityNamingService _namingService;
+    private readonly IDirectoryService _directoryService;
 
     private readonly NextExpectedChapterDto _emptyExpectedChapter = new NextExpectedChapterDto
     {
@@ -60,7 +62,7 @@ public class SeriesService : ISeriesService
 
     public SeriesService(IUnitOfWork unitOfWork, IEventHub eventHub, ITaskScheduler taskScheduler,
         ILogger<SeriesService> logger, ILocalizationService localizationService, IReadingListService readingListService,
-        IEntityNamingService namingService)
+        IEntityNamingService namingService, IDirectoryService directoryService)
     {
         _unitOfWork = unitOfWork;
         _eventHub = eventHub;
@@ -69,6 +71,7 @@ public class SeriesService : ISeriesService
         _localizationService = localizationService;
         _readingListService = readingListService;
         _namingService = namingService;
+        _directoryService = directoryService;
     }
 
     /// <summary>
@@ -456,7 +459,7 @@ public class SeriesService : ISeriesService
     }
 
 
-    public async Task<bool> DeleteMultipleSeries(IList<int> seriesIds)
+    public async Task<bool> DeleteMultipleSeries(IList<int> seriesIds, bool deleteFiles = false)
     {
         try
         {
@@ -467,6 +470,34 @@ public class SeriesService : ISeriesService
             foreach (var mapping in chapterMappings)
             {
                 allChapterIds.AddRange(mapping.Value);
+            }
+
+            // Delete files from disk before removing DB entries so a failure keeps the series intact
+            if (deleteFiles)
+            {
+                foreach (var seriesId in seriesIds)
+                {
+                    var files = await _unitOfWork.SeriesRepository.GetFilesForSeries(seriesId);
+                    var filePaths = files.Select(f => f.FilePath).ToList();
+                    _logger.LogInformation("Deleting {Count} files from disk for series {SeriesId}", filePaths.Count, seriesId);
+                    _directoryService.DeleteFiles(filePaths);
+
+                    // Clean up empty parent directories
+                    var parentDirs = filePaths
+                        .Select(Path.GetDirectoryName)
+                        .Where(d => !string.IsNullOrEmpty(d))
+                        .Distinct()
+                        .ToList();
+
+                    foreach (var dir in parentDirs)
+                    {
+                        if (Directory.Exists(dir!) && !Directory.EnumerateFileSystemEntries(dir!).Any())
+                        {
+                            _logger.LogInformation("Removing empty directory: {Directory}", dir);
+                            Directory.Delete(dir!);
+                        }
+                    }
+                }
             }
 
             // NOTE: This isn't getting all the people and whatnot currently due to the lack of includes

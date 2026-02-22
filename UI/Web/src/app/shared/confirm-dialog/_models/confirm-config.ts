@@ -13,4 +13,12 @@ export class ConfirmConfig {
    * Enables book theme css classes to style the popup properly
    */
   bookReader?: boolean = false;
+  /**
+   * If set, shows a checkbox in the dialog body with this text (translation key)
+   */
+  checkboxText?: string;
+  /**
+   * Tracks the checkbox state after the dialog closes
+   */
+  checkboxChecked?: boolean = false;
 }

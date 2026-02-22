@@ -9,6 +9,7 @@ using API.Services.Plus;
 using API.Services.Reading;
 using API.Services.Store;
 using API.Services.Tasks;
+using API.Services.MetadataEnrichment;
 using API.Services.Tasks.Metadata;
 using API.Services.Tasks.Scanner;
 using API.SignalR;
@@ -70,6 +71,11 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IAnnotationService, AnnotationService>();
         services.AddScoped<IOpdsService, OpdsService>();
         services.AddScoped<IUploadBookService, UploadBookService>();
+
+        services.AddScoped<IMetadataEnrichmentProvider, ComicVineProvider>();
+        services.AddScoped<IMetadataEnrichmentProvider, OpenLibraryProvider>();
+        services.AddScoped<IMetadataEnrichmentProvider, AniListProvider>();
+        services.AddScoped<IMetadataEnrichmentService, MetadataEnrichmentService>();
 
         services.AddScoped<IScannerService, ScannerService>();
         services.AddScoped<IProcessSeries, ProcessSeries>();

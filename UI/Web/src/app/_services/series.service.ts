@@ -91,12 +91,12 @@ export class SeriesService {
     return this.httpClient.get<Chapter>(this.baseUrl + 'series/chapter?chapterId=' + chapterId);
   }
 
-  delete(seriesId: number) {
-    return this.httpClient.delete<string>(this.baseUrl + 'series/' + seriesId, TextResonse).pipe(map(s => s === "true"));
+  delete(seriesId: number, deleteFiles: boolean = false) {
+    return this.httpClient.delete<string>(this.baseUrl + 'series/' + seriesId + '?deleteFiles=' + deleteFiles, TextResonse).pipe(map(s => s === "true"));
   }
 
-  deleteMultipleSeries(seriesIds: Array<number>) {
-    return this.httpClient.post<string>(this.baseUrl + 'series/delete-multiple', {seriesIds}, TextResonse).pipe(map(s => s === "true"));
+  deleteMultipleSeries(seriesIds: Array<number>, deleteFiles: boolean = false) {
+    return this.httpClient.post<string>(this.baseUrl + 'series/delete-multiple', {seriesIds, deleteFiles}, TextResonse).pipe(map(s => s === "true"));
   }
 
   updateSeries(model: any) {

@@ -212,5 +212,15 @@ public enum ServerSettingKey
     /// </summary>
     /// <remarks>After a set amount, the Stats API will stop recording some information, like Average I/O time</remarks>
     [Description("StatsApiHits")]
-    StatsApiHits = 42
+    StatsApiHits = 42,
+    /// <summary>
+    /// API key for ComicVine metadata lookups during book upload
+    /// </summary>
+    [Description("ComicVineApiKey")]
+    ComicVineApiKey = 43,
+    /// <summary>
+    /// Whether to automatically look up external metadata during book upload
+    /// </summary>
+    [Description("EnableUploadEnrichment")]
+    EnableUploadEnrichment = 44
 }

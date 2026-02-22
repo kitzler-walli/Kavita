@@ -16,7 +16,19 @@
       </form>
     </div>
   } @else {
-    <div class="modal-body" [class.book-reader]="config.bookReader" style="overflow-x: auto" [innerHtml]="(config.content | confirmTranslate)! | safeHtml"></div>
+    <div class="modal-body" [class.book-reader]="config.bookReader" style="overflow-x: auto">
+      <div [innerHtml]="(config.content | confirmTranslate)! | safeHtml"></div>
+      @if (config.checkboxText) {
+        <form [formGroup]="formGroup">
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" formControlName="checkbox" id="confirmCheckbox">
+            <label class="form-check-label" for="confirmCheckbox">
+              {{config.checkboxText | confirmTranslate}}
+            </label>
+          </div>
+        </form>
+      }
+    </div>
   }
 
   <div class="modal-footer" [class.book-reader]="config.bookReader">

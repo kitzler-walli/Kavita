@@ -10,6 +10,7 @@ using API.DTOs.Uploads;
 using API.Entities;
 using API.Entities.Enums;
 using API.Services;
+using API.Services.MetadataEnrichment;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -28,17 +29,28 @@ public class UploadBookServiceTests(ITestOutputHelper outputHelper) : AbstractDb
         MockFileSystem? fileSystem = null,
         IArchiveService? archiveService = null,
         IBookService? bookService = null,
-        ITaskScheduler? taskScheduler = null)
+        ITaskScheduler? taskScheduler = null,
+        IMetadataEnrichmentService? enrichmentService = null)
     {
         fileSystem ??= CreateFileSystem();
         archiveService ??= Substitute.For<IArchiveService>();
         bookService ??= Substitute.For<IBookService>();
         taskScheduler ??= Substitute.For<ITaskScheduler>();
+        enrichmentService ??= CreateDefaultEnrichmentService();
 
         var directoryService = new DirectoryService(Substitute.For<ILogger<DirectoryService>>(), fileSystem);
 
         return new UploadBookService(directoryService, archiveService, bookService,
-            unitOfWork, taskScheduler, _logger);
+            unitOfWork, taskScheduler, enrichmentService, _logger);
+    }
+
+    private static IMetadataEnrichmentService CreateDefaultEnrichmentService()
+    {
+        var mock = Substitute.For<IMetadataEnrichmentService>();
+        mock.EnrichAsync(Arg.Any<EnrichmentContext>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns(new EnrichmentResult { Source = MetadataSource.Local, Success = false });
+
+        return mock;
     }
 
     private static IFormFile CreateMockFormFile(string fileName, string content = "dummy")
