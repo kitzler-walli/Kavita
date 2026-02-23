@@ -1,0 +1,49 @@
+# Multi-stage Dockerfile for GitLab CI/CD
+# Compiles everything inside Docker — no .NET SDK or Node.js needed on the host
+
+# Stage 1: Build Angular UI
+FROM node:22 AS ui-build
+WORKDIR /src/UI/Web
+COPY UI/Web/package*.json ./
+RUN npm ci
+COPY UI/Web/ ./
+RUN npm run prod
+
+# Stage 2: Build .NET backend
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS api-build
+WORKDIR /src
+COPY API/API.csproj API/
+COPY Kavita.Common/Kavita.Common.csproj Kavita.Common/
+RUN dotnet restore API/API.csproj
+COPY API/ API/
+COPY Kavita.Common/ Kavita.Common/
+COPY --from=ui-build /src/UI/Web/dist/browser API/wwwroot/
+RUN dotnet publish API/API.csproj -c Release --self-contained \
+    --runtime linux-x64 -o /publish
+
+# Stage 3: Runtime image (matches existing Dockerfile)
+FROM ubuntu:noble
+
+RUN apt-get update \
+    && apt-get install -y libicu-dev libgdiplus curl tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=api-build /publish /kavita
+COPY --from=ui-build /src/UI/Web/dist/browser /kavita/wwwroot
+COPY API/config/appsettings.json /tmp/config/appsettings.json
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+RUN mv /kavita/API /kavita/Kavita && chmod +x /kavita/Kavita
+
+EXPOSE 5000
+
+WORKDIR /kavita
+
+HEALTHCHECK --interval=30s --timeout=15s --start-period=30s --retries=3 \
+    CMD curl -fsS http://localhost:5000/api/health || exit 1
+
+ENV DOTNET_RUNNING_IN_CONTAINER=true
+ENV TZ=UTC
+
+ENTRYPOINT ["/bin/bash"]
+CMD ["/entrypoint.sh"]
