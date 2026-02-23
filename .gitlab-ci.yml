@@ -1,27 +1,14 @@
 stages:
-  - build
   - deploy
-
-build:
-  stage: build
-  tags: [shell]
-  script:
-    - docker build --platform linux/amd64 -f Dockerfile.deploy -t kavita:custom .
-    - docker save kavita:custom | gzip > kavita-docker.tar.gz
-  artifacts:
-    paths:
-      - kavita-docker.tar.gz
-    expire_in: 1 day
-  when: manual
 
 deploy:
   stage: deploy
   tags: [shell]
-  needs: [build]
   script:
+    - docker build --platform linux/amd64 -f Dockerfile.deploy -t kavita:custom .
     - eval $(ssh-agent -s)
     - echo "$SSH_PRIVATE_KEY" | ssh-add -
-    - scp -o StrictHostKeyChecking=no kavita-docker.tar.gz root@192.168.0.75:/tmp/
+    - docker save kavita:custom | gzip | ssh -o StrictHostKeyChecking=no root@192.168.0.75 "cat > /tmp/kavita-docker.tar.gz"
     - ssh -o StrictHostKeyChecking=no root@192.168.0.75 "
         docker stop kavita || true &&
         docker rm kavita || true &&
