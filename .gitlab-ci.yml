@@ -6,11 +6,10 @@ deploy:
   tags: [shell]
   script:
     - docker build --platform linux/amd64 -f Dockerfile.deploy -t kavita:custom .
-    - eval $(ssh-agent -s)
     - chmod 600 "$SSH_PRIVATE_KEY"
-    - ssh-add "$SSH_PRIVATE_KEY"
-    - docker save kavita:custom | gzip | ssh -o StrictHostKeyChecking=no root@192.168.0.75 "cat > /tmp/kavita-docker.tar.gz"
-    - ssh -o StrictHostKeyChecking=no root@192.168.0.75 "
+    - SSH_OPTS="-i $SSH_PRIVATE_KEY -o StrictHostKeyChecking=no"
+    - docker save kavita:custom | gzip | ssh $SSH_OPTS root@192.168.0.75 "cat > /tmp/kavita-docker.tar.gz"
+    - ssh $SSH_OPTS root@192.168.0.75 "
         docker stop kavita || true &&
         docker rm kavita || true &&
         docker load < /tmp/kavita-docker.tar.gz &&
