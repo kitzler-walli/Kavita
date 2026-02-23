@@ -17,17 +17,23 @@ curl -L https://packages.gitlab.com/install/repositories/runner/gitlab-runner/sc
 sudo apt-get install gitlab-runner
 ```
 
-## 2. Register the Runner
+## 2. Create and Register the Runner
 
-Go to **GitLab > Your Project > Settings > CI/CD > Runners** and copy the registration token.
+The old `--registration-token` flow is deprecated. Create the runner in the GitLab UI instead:
+
+1. Go to **GitLab > Your Project > Settings > CI/CD > Runners**
+2. Click **New project runner**
+3. Set the tag to `shell`, add a description (e.g. "shell-runner"), and click **Create runner**
+4. GitLab will display an authentication token (starts with `glrt-`) — copy it
+
+Then register with the token:
 
 ```bash
 sudo gitlab-runner register \
   --url https://git.kw.at \
-  --registration-token YOUR_TOKEN \
+  --token glrt-XXXXX \
   --executor shell \
-  --description "shell-runner" \
-  --tag-list "shell"
+  --description "shell-runner"
 ```
 
 ## 3. Add gitlab-runner User to Docker Group
