@@ -15,6 +15,7 @@ WORKDIR /src
 COPY API/API.csproj API/
 COPY Kavita.Common/Kavita.Common.csproj Kavita.Common/
 RUN dotnet restore API/API.csproj
+COPY favicon.ico ./
 COPY API/ API/
 COPY Kavita.Common/ Kavita.Common/
 COPY --from=ui-build /src/UI/Web/dist/browser API/wwwroot/
