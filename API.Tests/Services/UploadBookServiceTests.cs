@@ -224,7 +224,7 @@ public class UploadBookServiceTests(ITestOutputHelper outputHelper) : AbstractDb
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        var library = await context.Library.FirstAsync();
+        var library = await context.Library.Include(l => l.AppUsers).FirstAsync();
         library.AppUsers.Add(user);
         await context.SaveChangesAsync();
 
@@ -287,7 +287,7 @@ public class UploadBookServiceTests(ITestOutputHelper outputHelper) : AbstractDb
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        var library = await context.Library.FirstAsync();
+        var library = await context.Library.Include(l => l.AppUsers).FirstAsync();
         library.AppUsers.Add(user);
         await context.SaveChangesAsync();
 
@@ -321,7 +321,7 @@ public class UploadBookServiceTests(ITestOutputHelper outputHelper) : AbstractDb
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        var library = await context.Library.FirstAsync();
+        var library = await context.Library.Include(l => l.AppUsers).FirstAsync();
         library.AppUsers.Add(user);
         await context.SaveChangesAsync();
 
