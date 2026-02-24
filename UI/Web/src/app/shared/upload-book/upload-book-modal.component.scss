@@ -76,6 +76,15 @@
   opacity: 0.8;
 }
 
+.re-enrich-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
 .source-badge {
   font-size: 0.75rem;
   padding: 0.2em 0.5em;

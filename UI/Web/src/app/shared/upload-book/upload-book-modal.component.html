@@ -180,6 +180,22 @@
                 <tr class="detail-row">
                   <td colspan="5">
                     <div class="detail-content">
+                      <div class="re-enrich-row" (click)="$event.stopPropagation()">
+                        <input type="text" class="form-control form-control-sm"
+                               [(ngModel)]="reEnrichTerms[i]"
+                               [ngModelOptions]="{standalone: true}"
+                               [placeholder]="t('re-enrich-placeholder')"
+                               [disabled]="reEnrichLoading.has(i)"
+                               (keydown.enter)="reEnrich(i)">
+                        <button class="btn btn-outline-primary btn-sm flex-shrink-0"
+                                [disabled]="reEnrichLoading.has(i) || !reEnrichTerms[i]?.trim()"
+                                (click)="reEnrich(i)">
+                          @if (reEnrichLoading.has(i)) {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                          }
+                          {{t('re-enrich-btn')}}
+                        </button>
+                      </div>
                       @if (file.title) {
                         <div class="detail-field">
                           <span class="detail-label">{{t('book-title')}}:</span>

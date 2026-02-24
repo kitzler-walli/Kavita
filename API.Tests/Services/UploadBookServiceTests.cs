@@ -354,4 +354,92 @@ public class UploadBookServiceTests(ITestOutputHelper outputHelper) : AbstractDb
     }
 
     #endregion
+
+    #region ReEnrichAsync
+
+    [Fact]
+    public async Task ReEnrichAsync_WithSuccessfulEnrichment_ReturnsPopulatedResult()
+    {
+        var (unitOfWork, _, _) = await CreateDatabase();
+        var enrichmentService = Substitute.For<IMetadataEnrichmentService>();
+        enrichmentService.EnrichAsync(Arg.Any<EnrichmentContext>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns(new EnrichmentResult
+            {
+                Success = true,
+                Source = MetadataSource.ComicVine,
+                Series = "Batman",
+                Title = "The Dark Knight",
+                Writer = "Frank Miller",
+                Summary = "A dark tale",
+                Publisher = "DC Comics",
+                Genre = "Action,Superhero",
+                Year = 1986,
+                ExternalUrl = "https://comicvine.example.com/batman"
+            });
+
+        var service = CreateService(unitOfWork, enrichmentService: enrichmentService);
+
+        var result = await service.ReEnrichAsync("Batman", MangaFormat.Archive);
+
+        Assert.True(result.Success);
+        Assert.Equal((int)MetadataSource.ComicVine, result.MetadataSource);
+        Assert.Equal("Batman", result.Series);
+        Assert.Equal("The Dark Knight", result.Title);
+        Assert.Equal("Frank Miller", result.Writer);
+        Assert.Equal("A dark tale", result.Summary);
+        Assert.Equal("DC Comics", result.Publisher);
+        Assert.Equal("Action,Superhero", result.Genre);
+        Assert.Equal(1986, result.Year);
+        Assert.Equal("https://comicvine.example.com/batman", result.ExternalUrl);
+    }
+
+    [Fact]
+    public async Task ReEnrichAsync_WithNoResults_ReturnsUnsuccessful()
+    {
+        var (unitOfWork, _, _) = await CreateDatabase();
+        var service = CreateService(unitOfWork);
+
+        var result = await service.ReEnrichAsync("NonexistentSeries", MangaFormat.Archive);
+
+        Assert.False(result.Success);
+    }
+
+    [Fact]
+    public async Task ReEnrichAsync_WithEnrichmentException_ReturnsUnsuccessful()
+    {
+        var (unitOfWork, _, _) = await CreateDatabase();
+        var enrichmentService = Substitute.For<IMetadataEnrichmentService>();
+        enrichmentService.EnrichAsync(Arg.Any<EnrichmentContext>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns<EnrichmentResult>(_ => throw new Exception("Provider down"));
+
+        var service = CreateService(unitOfWork, enrichmentService: enrichmentService);
+
+        var result = await service.ReEnrichAsync("Batman", MangaFormat.Archive);
+
+        Assert.False(result.Success);
+    }
+
+    [Fact]
+    public async Task ReEnrichAsync_PassesCorrectContextToEnrichmentService()
+    {
+        var (unitOfWork, _, _) = await CreateDatabase();
+        var enrichmentService = Substitute.For<IMetadataEnrichmentService>();
+        enrichmentService.EnrichAsync(Arg.Any<EnrichmentContext>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns(new EnrichmentResult { Success = false, Source = MetadataSource.Local });
+
+        var service = CreateService(unitOfWork, enrichmentService: enrichmentService);
+
+        await service.ReEnrichAsync("One Piece", MangaFormat.Epub);
+
+        await enrichmentService.Received(1).EnrichAsync(
+            Arg.Is<EnrichmentContext>(ctx =>
+                ctx.Series == "One Piece" &&
+                ctx.Format == MangaFormat.Epub &&
+                ctx.Title == string.Empty &&
+                ctx.Writer == string.Empty &&
+                ctx.Volume == string.Empty),
+            Arg.Any<System.Threading.CancellationToken>());
+    }
+
+    #endregion
 }

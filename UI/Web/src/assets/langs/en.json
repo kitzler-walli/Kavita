@@ -474,7 +474,12 @@
         "upload-timeout": "Upload timed out",
         "upload-network-error": "Network error — check if a reverse proxy limits file size",
         "upload-too-large": "File too large",
-        "partial-upload-details": "{{count}} file(s) failed to upload: {{details}}"
+        "partial-upload-details": "{{count}} file(s) failed to upload: {{details}}",
+        "re-enrich-placeholder": "Enter search term...",
+        "re-enrich-btn": "Look up",
+        "re-enrich-success": "Metadata updated from external source",
+        "re-enrich-no-results": "No metadata found for this search term",
+        "re-enrich-failed": "Metadata lookup failed. Please try again."
     },
 
     "client-device-card": {
@@ -2609,7 +2614,13 @@
         "specials-volume": "Specials",
         "release-year-validation": "{{validation.year-validation}}",
         "volumes-title": "{{tab.volumes-tab}}",
-        "no-data": "{{common.no-data}}"
+        "no-data": "{{common.no-data}}",
+        "enrich-search-placeholder": "Search external sources...",
+        "enrich-btn": "Look up",
+        "enrich-apply": "Apply",
+        "enrich-success": "External metadata applied",
+        "enrich-no-results": "No metadata found for this search term",
+        "enrich-failed": "Metadata lookup failed"
     },
 
     "edit-chapter-modal": {

@@ -38,3 +38,16 @@ export interface ConfirmUploadFileDto {
   metadataSource: number;
   externalUrl?: string;
 }
+
+export interface ReEnrichResultDto {
+  success: boolean;
+  metadataSource: number;
+  externalUrl?: string;
+  series: string;
+  title: string;
+  writer: string;
+  summary: string;
+  publisher: string;
+  genre: string;
+  year: number;
+}

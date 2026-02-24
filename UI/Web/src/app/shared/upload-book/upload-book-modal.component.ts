@@ -10,7 +10,7 @@ import {
 import {UploadBookService} from '../../_services/upload-book.service';
 import {LibraryService} from '../../_services/library.service';
 import {Library} from '../../_models/library/library';
-import {ConfirmUploadFileDto, UploadBookFileDto} from '../../_models/upload/upload-book-file-dto';
+import {ConfirmUploadFileDto, ReEnrichResultDto, UploadBookFileDto} from '../../_models/upload/upload-book-file-dto';
 
 enum UploadStep {
   Select,
@@ -55,6 +55,8 @@ export class UploadBookModalComponent implements OnInit {
   uploadedFiles: UploadBookFileDto[] = [];
   fileForms: FormGroup[] = [];
   expandedRows = new Set<number>();
+  reEnrichTerms: string[] = [];
+  reEnrichLoading = new Set<number>();
 
   ngOnInit(): void {
     this.libraryService.getLibraries().subscribe(libs => {
@@ -222,6 +224,7 @@ export class UploadBookModalComponent implements OnInit {
         number: new FormControl(file.number),
       });
     });
+    this.reEnrichTerms = this.uploadedFiles.map(file => file.series);
   }
 
   applySeriestoAll(index: number) {
@@ -229,6 +232,45 @@ export class UploadBookModalComponent implements OnInit {
     for (const form of this.fileForms) {
       form.controls['series'].setValue(series);
     }
+  }
+
+  reEnrich(index: number) {
+    const term = this.reEnrichTerms[index]?.trim();
+    if (!term || this.reEnrichLoading.has(index)) return;
+
+    this.reEnrichLoading.add(index);
+    this.cdRef.markForCheck();
+
+    this.uploadService.reEnrich(term, this.uploadedFiles[index].format).subscribe({
+      next: (result: ReEnrichResultDto) => {
+        this.reEnrichLoading.delete(index);
+        if (result.success) {
+          const file = this.uploadedFiles[index];
+          if (result.series) file.series = result.series;
+          if (result.title) file.title = result.title;
+          if (result.writer) file.writer = result.writer;
+          if (result.summary) file.summary = result.summary;
+          if (result.publisher) file.publisher = result.publisher;
+          if (result.genre) file.genre = result.genre;
+          if (result.year) file.year = result.year;
+          file.metadataSource = result.metadataSource;
+          file.externalUrl = result.externalUrl;
+
+          // Update form controls
+          if (result.series) this.fileForms[index].controls['series'].setValue(result.series);
+
+          this.toastr.success(translate('upload-book-modal.re-enrich-success'));
+        } else {
+          this.toastr.info(translate('upload-book-modal.re-enrich-no-results'));
+        }
+        this.cdRef.markForCheck();
+      },
+      error: () => {
+        this.reEnrichLoading.delete(index);
+        this.toastr.error(translate('upload-book-modal.re-enrich-failed'));
+        this.cdRef.markForCheck();
+      }
+    });
   }
 
   hasMetadata(file: UploadBookFileDto): boolean {

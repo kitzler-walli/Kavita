@@ -29,6 +29,11 @@ public interface IUploadBookService
     /// Move files from temp to library folder organized by series name, trigger scan.
     /// </summary>
     Task ConfirmUploadsAsync(ConfirmUploadDto dto, int userId);
+
+    /// <summary>
+    /// Re-enrich metadata using a custom search term. Not gated by EnableUploadEnrichment.
+    /// </summary>
+    Task<ReEnrichResultDto> ReEnrichAsync(string searchTerm, MangaFormat format);
 }
 
 public class UploadBookService : IUploadBookService
@@ -327,6 +332,49 @@ public class UploadBookService : IUploadBookService
         var sanitized = InvalidPathCharsRegex.Replace(name.Trim(), "_");
 
         return sanitized;
+    }
+
+    public async Task<ReEnrichResultDto> ReEnrichAsync(string searchTerm, MangaFormat format)
+    {
+        var context = new EnrichmentContext
+        {
+            Format = format,
+            Series = searchTerm,
+            Title = string.Empty,
+            Writer = string.Empty,
+            Volume = string.Empty,
+            Number = string.Empty,
+            Isbn = string.Empty,
+            Summary = string.Empty,
+            Publisher = string.Empty,
+            Genre = string.Empty,
+            Year = 0
+        };
+
+        try
+        {
+            var result = await _enrichmentService.EnrichAsync(context);
+
+            return new ReEnrichResultDto
+            {
+                Success = result.Success,
+                MetadataSource = (int)result.Source,
+                ExternalUrl = result.ExternalUrl,
+                Series = result.Series ?? string.Empty,
+                Title = result.Title ?? string.Empty,
+                Writer = result.Writer ?? string.Empty,
+                Summary = result.Summary ?? string.Empty,
+                Publisher = result.Publisher ?? string.Empty,
+                Genre = result.Genre ?? string.Empty,
+                Year = result.Year ?? 0
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Re-enrichment failed for search term '{SearchTerm}'", searchTerm);
+
+            return new ReEnrichResultDto { Success = false };
+        }
     }
 
     private void EmbedMetadata(string tempPath, ConfirmUploadFileDto file)

@@ -537,6 +537,27 @@ public class UploadController : BaseApiController
     }
 
     /// <summary>
+    /// Re-enrich metadata for a given search term and format. Returns enrichment results from external providers.
+    /// </summary>
+    [HttpPost("re-enrich")]
+    [DisallowRole(PolicyConstants.ReadOnlyRole)]
+    public async Task<ActionResult<ReEnrichResultDto>> ReEnrich(ReEnrichUploadDto dto)
+    {
+        try
+        {
+            var result = await _uploadBookService.ReEnrichAsync(dto.SearchTerm, dto.Format);
+
+            return Ok(result);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "There was an issue re-enriching metadata for search term '{SearchTerm}'", dto.SearchTerm);
+
+            return BadRequest("An error occurred while looking up metadata");
+        }
+    }
+
+    /// <summary>
     /// Confirm placement of previously uploaded files into a library folder. Triggers a library scan.
     /// </summary>
     /// <param name="dto">The confirmation details including target library and file metadata</param>

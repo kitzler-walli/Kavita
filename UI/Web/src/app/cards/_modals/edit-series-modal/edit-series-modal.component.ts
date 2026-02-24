@@ -8,7 +8,7 @@ import {
   Input,
   OnInit
 } from '@angular/core';
-import {FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
+import {FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
 import {
   NgbActiveModal,
   NgbCollapse,
@@ -36,6 +36,8 @@ import {LibraryService} from 'src/app/_services/library.service';
 import {MetadataService} from 'src/app/_services/metadata.service';
 import {SeriesService} from 'src/app/_services/series.service';
 import {UploadService} from 'src/app/_services/upload.service';
+import {UploadBookService} from 'src/app/_services/upload-book.service';
+import {ReEnrichResultDto} from 'src/app/_models/upload/upload-book-file-dto';
 import {takeUntilDestroyed} from "@angular/core/rxjs-interop";
 import {TypeaheadComponent} from "../../../typeahead/_components/typeahead.component";
 import {CoverImageChooserComponent} from "../../cover-image-chooser/cover-image-chooser.component";
@@ -89,6 +91,7 @@ const blackList = [Action.Edit, Action.Info, Action.IncognitoRead, Action.Read, 
   selector: 'app-edit-series-modal',
   imports: [
     ReactiveFormsModule,
+    FormsModule,
     NgbNav,
     NgbNavContent,
     NgbNavItem,
@@ -139,6 +142,7 @@ export class EditSeriesModalComponent implements OnInit {
   private readonly actionService = inject(ActionService);
   private readonly downloadService = inject(DownloadService);
   protected readonly breakpointService = inject(BreakpointService);
+  private readonly uploadBookService = inject(UploadBookService);
 
   protected readonly TabID = TabID;
   protected readonly PersonRole = PersonRole;
@@ -162,6 +166,9 @@ export class EditSeriesModalComponent implements OnInit {
   size: number = 0;
   hasForcedKPlus = false;
   forceIsLoading = false;
+  enrichSearchTerm = '';
+  enrichLoading = false;
+  enrichResult: ReEnrichResultDto | null = null;
 
 
   // Typeaheads
@@ -207,6 +214,7 @@ export class EditSeriesModalComponent implements OnInit {
     })).subscribe();
 
     this.initSeries = Object.assign({}, this.series);
+    this.enrichSearchTerm = this.series.name;
 
     this.editSeriesForm = this.fb.group({
       id: new FormControl(this.series.id, []),
@@ -502,6 +510,79 @@ export class EditSeriesModalComponent implements OnInit {
     personSettings.trackByIdentityFn = (index, value) => value.name + (value.id + '');
 
     return personSettings;
+  }
+
+  searchEnrichment() {
+    const term = this.enrichSearchTerm?.trim();
+    if (!term || this.enrichLoading) return;
+
+    this.enrichLoading = true;
+    this.enrichResult = null;
+    this.cdRef.markForCheck();
+
+    this.uploadBookService.reEnrich(term, this.series.format).subscribe({
+      next: (result) => {
+        this.enrichLoading = false;
+        this.enrichResult = result;
+        if (!result.success) {
+          this.toastr.info(translate('edit-series-modal.enrich-no-results'));
+        }
+        this.cdRef.markForCheck();
+      },
+      error: () => {
+        this.enrichLoading = false;
+        this.toastr.error(translate('edit-series-modal.enrich-failed'));
+        this.cdRef.markForCheck();
+      }
+    });
+  }
+
+  applyEnrichment() {
+    if (!this.enrichResult?.success) return;
+
+    const r = this.enrichResult;
+
+    if (r.summary && !this.metadata.summaryLocked) {
+      this.editSeriesForm.get('summary')?.setValue(r.summary);
+    }
+
+    if (r.year && !this.metadata.releaseYearLocked) {
+      this.editSeriesForm.get('releaseYear')?.setValue(r.year);
+    }
+
+    if (r.genre) {
+      const newGenres: Genre[] = r.genre.split(',').map(g => g.trim()).filter(g => g).map(g => ({id: 0, title: g}));
+      if (newGenres.length > 0) {
+        this.metadata.genres = newGenres;
+        this.metadata.genresLocked = true;
+        this.genreSettings.savedData = newGenres;
+      }
+    }
+
+    if (r.writer) {
+      const newWriters: Person[] = r.writer.split(',').map(w => w.trim()).filter(w => w).map(w => ({
+        id: 0, name: w, aliases: [], description: '', coverImageLocked: false, primaryColor: '', secondaryColor: ''
+      }));
+      if (newWriters.length > 0) {
+        this.metadataService.updatePerson(this.metadata, newWriters, PersonRole.Writer);
+        this.metadata.writerLocked = true;
+        if (this.peopleSettings[PersonRole.Writer]) {
+          this.peopleSettings[PersonRole.Writer].savedData = newWriters;
+        }
+      }
+    }
+
+    if (r.externalUrl) {
+      const existing = this.metadata.webLinks ? this.metadata.webLinks.split(',').filter(l => l) : [];
+      if (!existing.includes(r.externalUrl)) {
+        existing.push(r.externalUrl.replaceAll(',', '%2C'));
+        this.metadata.webLinks = existing.join(',');
+      }
+    }
+
+    this.toastr.success(translate('edit-series-modal.enrich-success'));
+    this.enrichResult = null;
+    this.cdRef.markForCheck();
   }
 
   close() {

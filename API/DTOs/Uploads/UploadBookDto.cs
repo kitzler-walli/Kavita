@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using API.Entities.Enums;
+using API.Services.MetadataEnrichment;
 
 namespace API.DTOs.Uploads;
 
@@ -82,4 +83,24 @@ public sealed record ConfirmUploadFileDto
     /// External URL from the enrichment provider
     /// </summary>
     public string? ExternalUrl { get; set; }
+}
+
+public sealed record ReEnrichUploadDto
+{
+    [Required] public required string SearchTerm { get; set; }
+    [Required] public required MangaFormat Format { get; set; }
+}
+
+public sealed record ReEnrichResultDto
+{
+    public bool Success { get; set; }
+    public int MetadataSource { get; set; }
+    public string? ExternalUrl { get; set; }
+    public string Series { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Writer { get; set; } = string.Empty;
+    public string Summary { get; set; } = string.Empty;
+    public string Publisher { get; set; } = string.Empty;
+    public string Genre { get; set; } = string.Empty;
+    public int Year { get; set; }
 }

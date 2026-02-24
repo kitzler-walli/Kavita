@@ -2,7 +2,8 @@ import {inject, Injectable} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {Observable, Subject} from 'rxjs';
 import {environment} from 'src/environments/environment';
-import {ConfirmUploadDto, UploadBookFileDto} from '../_models/upload/upload-book-file-dto';
+import {ConfirmUploadDto, ReEnrichResultDto, UploadBookFileDto} from '../_models/upload/upload-book-file-dto';
+import {MangaFormat} from '../_models/manga-format';
 import {AccountService} from './account.service';
 
 export interface UploadProgressEvent {
@@ -46,6 +47,10 @@ export class UploadBookService {
 
   confirmUpload(dto: ConfirmUploadDto): Observable<void> {
     return this.httpClient.post<void>(this.baseUrl + 'upload/confirm-upload', dto);
+  }
+
+  reEnrich(searchTerm: string, format: MangaFormat): Observable<ReEnrichResultDto> {
+    return this.httpClient.post<ReEnrichResultDto>(this.baseUrl + 'upload/re-enrich', {searchTerm, format});
   }
 
   private async processFilesSequentially(files: File[], subject: Subject<UploadProgressEvent>) {
