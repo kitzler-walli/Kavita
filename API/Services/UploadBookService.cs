@@ -121,12 +121,39 @@ public class UploadBookService : IUploadBookService
             var year = comicInfo?.Year ?? 0;
 
             var seriesFromFile = false;
+            var fileNameNoExt = Path.GetFileNameWithoutExtension(file.FileName);
+
+            // Map file format to library type for Parser methods
+            var libraryType = format switch
+            {
+                MangaFormat.Epub or MangaFormat.Pdf => LibraryType.Book,
+                _ => LibraryType.Manga
+            };
+
             if (string.IsNullOrWhiteSpace(series))
             {
-                // Clean the filename to get a better series guess (strip volume numbers,
-                // parenthetical tags like language/publisher/group)
-                series = SearchTermCleaner.Clean(Path.GetFileNameWithoutExtension(file.FileName));
+                // Use Parser's existing parsing (same as library scanner) to extract series
+                series = Parser.ParseSeries(fileNameNoExt, libraryType);
+                if (string.IsNullOrWhiteSpace(series))
+                {
+                    // Fallback: clean the title directly
+                    series = Parser.CleanTitle(fileNameNoExt);
+                }
                 seriesFromFile = true;
+            }
+
+            // Extract volume/chapter from filename when ComicInfo didn't provide them
+            if (string.IsNullOrWhiteSpace(volume))
+            {
+                var parsedVol = Parser.ParseVolume(fileNameNoExt, libraryType);
+                if (parsedVol != Parser.LooseLeafVolume)
+                    volume = parsedVol;
+            }
+            if (string.IsNullOrWhiteSpace(number))
+            {
+                var parsedChapter = Parser.ParseChapter(fileNameNoExt, libraryType);
+                if (parsedChapter != Parser.DefaultChapter)
+                    number = parsedChapter;
             }
 
             // Try external metadata enrichment for empty fields

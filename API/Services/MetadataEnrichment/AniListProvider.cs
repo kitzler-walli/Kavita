@@ -98,9 +98,15 @@ public class AniListProvider : IMetadataEnrichmentProvider
             .OrderByDescending(m => BestTitleSimilarity(m.Title, context.Series))
             .First();
 
+        var bestScore = BestTitleSimilarity(bestMatch.Title, context.Series);
+        _logger.LogDebug("AniList best match: '{Title}' (score: {Score:F2}, threshold: 0.40)",
+            bestMatch.Title?.English ?? bestMatch.Title?.Romaji ?? "?", bestScore);
+
         // Only proceed if we have a reasonable match
-        if (BestTitleSimilarity(bestMatch.Title, context.Series) < 0.4)
+        if (bestScore < 0.4)
         {
+            _logger.LogDebug("AniList match score {Score:F2} below threshold, skipping", bestScore);
+
             return new EnrichmentResult { Source = Source, Success = false };
         }
 

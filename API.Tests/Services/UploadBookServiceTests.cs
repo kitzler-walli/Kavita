@@ -172,8 +172,10 @@ public class UploadBookServiceTests(ITestOutputHelper outputHelper) : AbstractDb
         var results = await service.ProcessUploadsAsync(files);
 
         Assert.Single(results);
-        Assert.Equal("My Cool Series v01", results[0].Series);
-        Assert.Equal(string.Empty, results[0].Volume);
+        // Parser.ParseSeries extracts just the series name, stripping the volume indicator
+        Assert.Equal("My Cool Series", results[0].Series);
+        // Parser.ParseVolume extracts the volume number from "v01"
+        Assert.Equal("1", results[0].Volume);
         Assert.Equal(string.Empty, results[0].Number);
     }
 

@@ -66,8 +66,13 @@ public static partial class SearchTermCleaner
     [GeneratedRegex(@"\([^)]*\)", RegexOptions.Compiled)]
     private static partial Regex ParentheticalRegex();
 
-    // Matches volume/chapter indicators: v01, Vol 2, 05, #12, ch.3, etc. at end or mid-string
-    [GeneratedRegex(@"\b(?:v(?:ol(?:ume)?)?\.?\s*\d+|ch(?:apter)?\.?\s*\d+|#\d+|\d{2,})\b", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    // Matches bracket groups: [GER], [kmts], [Digital], etc.
+    [GeneratedRegex(@"\[[^\]]*\]", RegexOptions.Compiled)]
+    private static partial Regex BracketRegex();
+
+    // Matches volume/chapter indicators including German/French markers:
+    // v01, Vol 2, Band 1, Bd. 3, Tome 2, Buch 1, ch.3, #12, bare multi-digit numbers
+    [GeneratedRegex(@"\b(?:v(?:ol(?:ume)?)?\.?\s*\d+|band\.?\s*\d+|bd\.?\s*\d+|tome?\.?\s*\d+|buch\.?\s*\d+|ch(?:apter)?\.?\s*\d+|#\d+|\d{2,})\b", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     private static partial Regex VolumeChapterRegex();
 
     // Collapse multiple spaces
@@ -78,8 +83,14 @@ public static partial class SearchTermCleaner
     {
         if (string.IsNullOrWhiteSpace(seriesName)) return seriesName;
 
+        // Replace underscores with spaces first
+        var cleaned = seriesName.Replace('_', ' ');
+
         // Remove parenthetical content
-        var cleaned = ParentheticalRegex().Replace(seriesName, " ");
+        cleaned = ParentheticalRegex().Replace(cleaned, " ");
+
+        // Remove bracket content
+        cleaned = BracketRegex().Replace(cleaned, " ");
 
         // Remove volume/chapter numbers
         cleaned = VolumeChapterRegex().Replace(cleaned, " ");
