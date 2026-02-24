@@ -79,10 +79,33 @@ public class AniListProvider : IMetadataEnrichmentProvider
             variables = new { search = searchTerm }
         };
 
-        var response = await GraphQlUrl
-            .WithHeader("Content-Type", "application/json")
-            .WithHeader("Accept", "application/json")
-            .PostJsonAsync(body, cancellationToken: ct);
+        IFlurlResponse response;
+        try
+        {
+            response = await GraphQlUrl
+                .WithHeader("Content-Type", "application/json")
+                .WithHeader("Accept", "application/json")
+                .PostJsonAsync(body, cancellationToken: ct);
+        }
+        catch (FlurlHttpException ex) when (ex.StatusCode == 429)
+        {
+            // AniList rate limit hit — wait for Retry-After (default 60s, cap at 90s) and retry once
+            var retryAfter = 60;
+            if (ex.Call?.Response?.Headers != null &&
+                ex.Call.Response.Headers.TryGetFirst("Retry-After", out var retryVal) &&
+                int.TryParse(retryVal, out var parsed) && parsed > 0)
+            {
+                retryAfter = Math.Min(parsed, 90);
+            }
+
+            _logger.LogInformation("AniList returned 429, waiting {Seconds}s before retry", retryAfter);
+            await Task.Delay(TimeSpan.FromSeconds(retryAfter), ct);
+
+            response = await GraphQlUrl
+                .WithHeader("Content-Type", "application/json")
+                .WithHeader("Accept", "application/json")
+                .PostJsonAsync(body, cancellationToken: ct);
+        }
 
         var json = await response.GetStringAsync();
         var result = JsonSerializer.Deserialize<AniListGraphQlResponse>(json);

@@ -44,6 +44,8 @@ public class ComicVineProvider : IMetadataEnrichmentProvider
         var apiKey = (await _unitOfWork.SettingsRepository.GetSettingAsync(ServerSettingKey.ComicVineApiKey)).Value;
         if (string.IsNullOrWhiteSpace(apiKey))
         {
+            _logger.LogDebug("ComicVine API key not configured, skipping enrichment");
+
             return new EnrichmentResult { Source = Source, Success = false };
         }
 
