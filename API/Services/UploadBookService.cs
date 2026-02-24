@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using API.Data;
 using API.Data.Metadata;
 using API.Data.Repositories;
+using API.DTOs.Archive;
 using API.DTOs.Uploads;
 using API.Entities.Enums;
 using API.Services.MetadataEnrichment;
@@ -273,6 +274,20 @@ public class UploadBookService : IUploadBookService
             var tempPath = Path.Combine(_directoryService.TempDirectory, file.TempFileName);
             if (!_directoryService.FileSystem.File.Exists(tempPath))
                 throw new FileNotFoundException($"Temp file not found: {file.TempFileName}");
+
+            // Convert CBR/RAR to CBZ so metadata can be embedded
+            var handler = _archiveService.CanOpen(tempPath);
+            if (handler == ArchiveLibrary.SharpCompress)
+            {
+                var cbzTempPath = Path.ChangeExtension(tempPath, ".cbz");
+                if (_archiveService.ConvertToCbz(tempPath, cbzTempPath))
+                {
+                    _directoryService.FileSystem.File.Delete(tempPath);
+                    tempPath = cbzTempPath;
+                    file.OriginalFileName = Path.ChangeExtension(file.OriginalFileName, ".cbz");
+                    _logger.LogInformation("Converted CBR to CBZ for metadata embedding: {FileName}", file.OriginalFileName);
+                }
+            }
 
             var sanitizedSeries = SanitizeDirectoryName(file.Series);
             if (string.IsNullOrWhiteSpace(sanitizedSeries))

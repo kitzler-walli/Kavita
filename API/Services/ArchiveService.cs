@@ -34,6 +34,10 @@ public interface IArchiveService
     /// Returns false for non-ZIP formats (CBR/RAR/7z).
     /// </summary>
     bool WriteComicInfo(string archivePath, ComicInfo comicInfo);
+    /// <summary>
+    /// Converts a non-ZIP archive (CBR/RAR) to CBZ (ZIP) format by repacking all entries.
+    /// </summary>
+    bool ConvertToCbz(string sourcePath, string destPath);
     bool ArchiveNeedsFlattening(ZipArchive archive);
     /// <summary>
     /// Creates a zip file form the listed files and outputs to the temp folder. This will combine into one zip of multiple zips.
@@ -569,6 +573,33 @@ public class ArchiveService : IArchiveService
         catch (Exception ex)
         {
             _logger.LogError(ex, "[WriteComicInfo] Failed to write ComicInfo.xml to {Path}", archivePath);
+
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public bool ConvertToCbz(string sourcePath, string destPath)
+    {
+        try
+        {
+            using var sourceArchive = ArchiveFactory.Open(sourcePath);
+            using var destStream = File.Create(destPath);
+            using var zip = new ZipArchive(destStream, ZipArchiveMode.Create);
+
+            foreach (var entry in sourceArchive.Entries.Where(e => !e.IsDirectory))
+            {
+                var zipEntry = zip.CreateEntry(entry.Key ?? string.Empty, CompressionLevel.Optimal);
+                using var entryStream = entry.OpenEntryStream();
+                using var zipEntryStream = zipEntry.Open();
+                entryStream.CopyTo(zipEntryStream);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[ConvertToCbz] Failed to convert {Source} to CBZ", sourcePath);
 
             return false;
         }

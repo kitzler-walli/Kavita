@@ -622,8 +622,10 @@ public static partial class Parser
             @"(?<Volume>((เล่ม|เล่มที่))?(\s|_)?\.?\d+)(\s|_)(บทที่|ตอนที่)\.?(\s|_)?(?<Chapter>\d+)",
             MatchOptions, RegexTimeout),
         // Historys Strongest Disciple Kenichi_v11_c90-98.zip, ...c90.5-100.5
+        // Negative lookahead prevents matching scan tags like "c2c" (cover-to-cover)
+        // but allows version suffixes like "x1" in c001-006x1
         new Regex(
-            @"(\b|_)(c|ch)(\.?\s?)(?<Chapter>(\d+(\.\d)?)(-c?\d+(\.\d)?)?)",
+            @"(\b|_)(c|ch)(\.?\s?)(?<Chapter>(\d+(\.\d)?)(-c?\d+(\.\d)?)?)(?![a-zA-Z](?!\d))",
             MatchOptions, RegexTimeout),
         // [Suihei Kiki]_Kasumi_Otoko_no_Ko_[Taruby]_v1.1.zip
         new Regex(
