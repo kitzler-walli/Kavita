@@ -159,7 +159,7 @@ export class UploadBookModalComponent implements OnInit {
   private uploadFiles(files: File[]) {
     this.step = UploadStep.Uploading;
     this.uploadProgress = 0;
-    this.uploadFileIndex = 0;
+    this.uploadFileIndex = 1;
     this.uploadTotalFiles = files.length;
     this.uploadCurrentFile = files[0]?.name ?? '';
     this.cdRef.markForCheck();
@@ -171,9 +171,26 @@ export class UploadBookModalComponent implements OnInit {
         this.uploadCurrentFile = event.fileName;
 
         if (event.result) {
+          // All files failed — nothing to review
+          if (event.result.length === 0) {
+            const details = event.errorDetails?.join(', ') || '';
+            if (details) {
+              this.toastr.error(
+                translate('upload-book-modal.partial-upload-details', {count: event.errors?.length || 0, details})
+              );
+            } else {
+              this.toastr.error(translate('upload-book-modal.all-uploads-failed'));
+            }
+            this.step = UploadStep.Select;
+            this.cdRef.detectChanges();
+
+            return;
+          }
+
           if (event.errors?.length) {
+            const details = event.errorDetails?.join(', ') || event.errors.join(', ');
             this.toastr.warning(
-              translate('upload-book-modal.partial-upload-warning', {count: event.errors.length})
+              translate('upload-book-modal.partial-upload-details', {count: event.errors.length, details})
             );
           }
 

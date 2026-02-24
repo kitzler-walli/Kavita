@@ -469,7 +469,12 @@
         "summary-label": "Summary",
         "target-path": "Target Path",
         "no-detail-metadata": "No additional metadata available",
-        "apply-all": "Apply to all files"
+        "apply-all": "Apply to all files",
+        "all-uploads-failed": "All files failed to upload. Please check your connection and file sizes.",
+        "upload-timeout": "Upload timed out",
+        "upload-network-error": "Network error — check if a reverse proxy limits file size",
+        "upload-too-large": "File too large",
+        "partial-upload-details": "{{count}} file(s) failed to upload: {{details}}"
     },
 
     "client-device-card": {
