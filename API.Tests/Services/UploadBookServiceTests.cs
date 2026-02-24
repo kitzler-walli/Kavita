@@ -49,6 +49,8 @@ public class UploadBookServiceTests(ITestOutputHelper outputHelper) : AbstractDb
         var mock = Substitute.For<IMetadataEnrichmentService>();
         mock.EnrichAsync(Arg.Any<EnrichmentContext>(), Arg.Any<System.Threading.CancellationToken>())
             .Returns(new EnrichmentResult { Source = MetadataSource.Local, Success = false });
+        mock.SearchAsync(Arg.Any<EnrichmentContext>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns(new List<EnrichmentResult>());
 
         return mock;
     }
@@ -461,6 +463,72 @@ public class UploadBookServiceTests(ITestOutputHelper outputHelper) : AbstractDb
                 ctx.Isbn == "978-3-16-148410-0" &&
                 ctx.PreferredSource == MetadataSource.ComicVine),
             Arg.Any<System.Threading.CancellationToken>());
+    }
+
+    #endregion
+
+    #region SearchEnrichAsync
+
+    [Fact]
+    public async Task SearchEnrichAsync_ReturnsMultipleResults()
+    {
+        var (unitOfWork, _, _) = await CreateDatabase();
+        var enrichmentService = Substitute.For<IMetadataEnrichmentService>();
+        enrichmentService.SearchAsync(Arg.Any<EnrichmentContext>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns(new List<EnrichmentResult>
+            {
+                new()
+                {
+                    Success = true,
+                    Source = MetadataSource.ComicVine,
+                    MatchScore = 0.95,
+                    Series = "Battle Angel Alita",
+                    Writer = "Yukito Kishiro",
+                    Summary = "A cyborg story",
+                    Publisher = "Viz Media",
+                    Year = 1990,
+                    ExternalUrl = "https://comicvine.example.com/alita"
+                },
+                new()
+                {
+                    Success = true,
+                    Source = MetadataSource.ComicVine,
+                    MatchScore = 0.70,
+                    Series = "Battle Angel Alita: Last Order",
+                    Writer = "Yukito Kishiro",
+                    Summary = "The sequel",
+                    Publisher = "Viz Media",
+                    Year = 2000,
+                    ExternalUrl = "https://comicvine.example.com/alita-lo"
+                }
+            });
+
+        var service = CreateService(unitOfWork, enrichmentService: enrichmentService);
+
+        var result = await service.SearchEnrichAsync("Battle Angel", MangaFormat.Archive);
+
+        Assert.True(result.Success);
+        Assert.Equal(2, result.Results.Count);
+        Assert.Equal("Battle Angel Alita", result.Results[0].Series);
+        Assert.Equal(0.95, result.Results[0].MatchScore);
+        Assert.Equal((int)MetadataSource.ComicVine, result.Results[0].MetadataSource);
+        Assert.Equal("Battle Angel Alita: Last Order", result.Results[1].Series);
+    }
+
+    [Fact]
+    public async Task SearchEnrichAsync_NoResults_ReturnsSuccessFalse()
+    {
+        var (unitOfWork, _, _) = await CreateDatabase();
+        var enrichmentService = Substitute.For<IMetadataEnrichmentService>();
+        enrichmentService.SearchAsync(Arg.Any<EnrichmentContext>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns(new List<EnrichmentResult>());
+
+        var service = CreateService(unitOfWork, enrichmentService: enrichmentService);
+
+        var result = await service.SearchEnrichAsync("NonexistentSeries", MangaFormat.Archive);
+
+        Assert.False(result.Success);
+        Assert.Empty(result.Results);
     }
 
     #endregion

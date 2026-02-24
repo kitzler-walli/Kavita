@@ -37,7 +37,7 @@ import {MetadataService} from 'src/app/_services/metadata.service';
 import {SeriesService} from 'src/app/_services/series.service';
 import {UploadService} from 'src/app/_services/upload.service';
 import {UploadBookService} from 'src/app/_services/upload-book.service';
-import {MetadataSource, ReEnrichResultDto} from 'src/app/_models/upload/upload-book-file-dto';
+import {EnrichmentSearchResultDto, MetadataSource, ReEnrichResultDto} from 'src/app/_models/upload/upload-book-file-dto';
 import {takeUntilDestroyed} from "@angular/core/rxjs-interop";
 import {TypeaheadComponent} from "../../../typeahead/_components/typeahead.component";
 import {CoverImageChooserComponent} from "../../cover-image-chooser/cover-image-chooser.component";
@@ -169,7 +169,9 @@ export class EditSeriesModalComponent implements OnInit {
   forceIsLoading = false;
   enrichSearchTerm = '';
   enrichLoading = false;
-  enrichResult: ReEnrichResultDto | null = null;
+  enrichResults: EnrichmentSearchResultDto[] = [];
+  selectedResultIndex: number | null = null;
+  enrichFieldSelection: Record<string, boolean> = {};
   enrichSource: MetadataSource | null = null;
 
 
@@ -519,14 +521,16 @@ export class EditSeriesModalComponent implements OnInit {
     if (!term || this.enrichLoading) return;
 
     this.enrichLoading = true;
-    this.enrichResult = null;
+    this.enrichResults = [];
+    this.selectedResultIndex = null;
+    this.enrichFieldSelection = {};
     this.cdRef.markForCheck();
 
-    this.uploadBookService.reEnrich(term, this.series.format, undefined, undefined, this.enrichSource ?? undefined).subscribe({
-      next: (result) => {
+    this.uploadBookService.searchEnrich(term, this.series.format, undefined, undefined, this.enrichSource ?? undefined).subscribe({
+      next: (response) => {
         this.enrichLoading = false;
-        this.enrichResult = result;
-        if (!result.success) {
+        this.enrichResults = response.results || [];
+        if (!response.success || this.enrichResults.length === 0) {
           this.toastr.info(translate('edit-series-modal.enrich-no-results'));
         }
         this.cdRef.markForCheck();
@@ -539,20 +543,48 @@ export class EditSeriesModalComponent implements OnInit {
     });
   }
 
+  selectResult(index: number) {
+    this.selectedResultIndex = index;
+    const r = this.enrichResults[index];
+    this.enrichFieldSelection = {};
+    if (r.series) this.enrichFieldSelection['series'] = true;
+    if (r.writer) this.enrichFieldSelection['writer'] = true;
+    if (r.summary) this.enrichFieldSelection['summary'] = true;
+    if (r.genre) this.enrichFieldSelection['genre'] = true;
+    if (r.year) this.enrichFieldSelection['year'] = true;
+    if (r.externalUrl) this.enrichFieldSelection['externalUrl'] = true;
+    this.cdRef.markForCheck();
+  }
+
+  backToResults() {
+    this.selectedResultIndex = null;
+    this.enrichFieldSelection = {};
+    this.cdRef.markForCheck();
+  }
+
+  getSourceLabel(source: number): string {
+    switch (source) {
+      case MetadataSource.ComicVine: return 'ComicVine';
+      case MetadataSource.OpenLibrary: return 'Open Library';
+      case MetadataSource.AniList: return 'AniList';
+      default: return 'Local';
+    }
+  }
+
   applyEnrichment() {
-    if (!this.enrichResult?.success) return;
+    if (this.selectedResultIndex == null) return;
+    const r = this.enrichResults[this.selectedResultIndex];
+    if (!r) return;
 
-    const r = this.enrichResult;
-
-    if (r.summary && !this.metadata.summaryLocked) {
+    if (this.enrichFieldSelection['summary'] && r.summary && !this.metadata.summaryLocked) {
       this.editSeriesForm.get('summary')?.setValue(r.summary);
     }
 
-    if (r.year && !this.metadata.releaseYearLocked) {
+    if (this.enrichFieldSelection['year'] && r.year && !this.metadata.releaseYearLocked) {
       this.editSeriesForm.get('releaseYear')?.setValue(r.year);
     }
 
-    if (r.genre) {
+    if (this.enrichFieldSelection['genre'] && r.genre) {
       const newGenres: Genre[] = r.genre.split(',').map(g => g.trim()).filter(g => g).map(g => ({id: 0, title: g}));
       if (newGenres.length > 0) {
         this.metadata.genres = newGenres;
@@ -561,7 +593,7 @@ export class EditSeriesModalComponent implements OnInit {
       }
     }
 
-    if (r.writer) {
+    if (this.enrichFieldSelection['writer'] && r.writer) {
       const newWriters: Person[] = r.writer.split(',').map(w => w.trim()).filter(w => w).map(w => ({
         id: 0, name: w, aliases: [], description: '', coverImageLocked: false, primaryColor: '', secondaryColor: ''
       }));
@@ -574,7 +606,7 @@ export class EditSeriesModalComponent implements OnInit {
       }
     }
 
-    if (r.externalUrl) {
+    if (this.enrichFieldSelection['externalUrl'] && r.externalUrl) {
       const existing = this.metadata.webLinks ? this.metadata.webLinks.split(',').filter(l => l) : [];
       if (!existing.includes(r.externalUrl)) {
         existing.push(r.externalUrl.replaceAll(',', '%2C'));
@@ -583,7 +615,9 @@ export class EditSeriesModalComponent implements OnInit {
     }
 
     this.toastr.success(translate('edit-series-modal.enrich-success'));
-    this.enrichResult = null;
+    this.enrichResults = [];
+    this.selectedResultIndex = null;
+    this.enrichFieldSelection = {};
     this.cdRef.markForCheck();
   }
 

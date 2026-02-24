@@ -203,6 +203,25 @@
                           {{t('re-enrich-btn')}}
                         </button>
                       </div>
+                      @if (reEnrichResults[i] && reEnrichResults[i].length > 0) {
+                        <div class="enrich-results-list mt-1" (click)="$event.stopPropagation()">
+                          @for (result of reEnrichResults[i]; track $index) {
+                            <div class="enrich-result-card" (click)="applyReEnrichResult(i, $index)">
+                              <div class="d-flex justify-content-between align-items-start">
+                                <strong>{{result.series || t('enrich-untitled')}}</strong>
+                                <span class="badge bg-secondary ms-2">{{getSourceLabel(result.metadataSource)}}</span>
+                              </div>
+                              @if (result.year || result.publisher) {
+                                <div class="text-muted small">
+                                  @if (result.year) { <span>{{result.year}}</span> }
+                                  @if (result.year && result.publisher) { <span> &mdash; </span> }
+                                  @if (result.publisher) { <span>{{result.publisher}}</span> }
+                                </div>
+                              }
+                            </div>
+                          }
+                        </div>
+                      }
                       @if (file.title) {
                         <div class="detail-field">
                           <span class="detail-label">{{t('book-title')}}:</span>

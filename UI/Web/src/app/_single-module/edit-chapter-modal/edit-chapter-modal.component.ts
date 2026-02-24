@@ -7,7 +7,7 @@ import {translate, TranslocoDirective} from "@jsverse/transloco";
 import {ToastrService} from "ngx-toastr";
 import {AccountService} from "../../_services/account.service";
 import {UploadBookService} from "../../_services/upload-book.service";
-import {MetadataSource, ReEnrichResultDto} from "../../_models/upload/upload-book-file-dto";
+import {EnrichmentSearchResultDto, MetadataSource, ReEnrichResultDto} from "../../_models/upload/upload-book-file-dto";
 import {Chapter} from "../../_models/chapter";
 import {LibraryType} from "../../_models/library/library";
 import {setupLanguageSettings, TypeaheadSettings} from "../../typeahead/_models/typeahead-settings";
@@ -143,7 +143,9 @@ export class EditChapterModalComponent implements OnInit {
 
   enrichSearchTerm = '';
   enrichLoading = false;
-  enrichResult: ReEnrichResultDto | null = null;
+  enrichResults: EnrichmentSearchResultDto[] = [];
+  selectedResultIndex: number | null = null;
+  enrichFieldSelection: Record<string, boolean> = {};
   enrichSource: MetadataSource | null = null;
 
   get WebLinks() {
@@ -243,15 +245,17 @@ export class EditChapterModalComponent implements OnInit {
     if (!term || this.enrichLoading) return;
 
     this.enrichLoading = true;
-    this.enrichResult = null;
+    this.enrichResults = [];
+    this.selectedResultIndex = null;
+    this.enrichFieldSelection = {};
     this.cdRef.markForCheck();
 
     const format = this.chapter.files?.[0]?.format ?? MangaFormat.ARCHIVE;
-    this.uploadBookService.reEnrich(term, format, this.chapter.number || undefined, this.chapter.isbn || undefined, this.enrichSource ?? undefined).subscribe({
-      next: (result) => {
+    this.uploadBookService.searchEnrich(term, format, this.chapter.number || undefined, this.chapter.isbn || undefined, this.enrichSource ?? undefined).subscribe({
+      next: (response) => {
         this.enrichLoading = false;
-        this.enrichResult = result;
-        if (!result.success) {
+        this.enrichResults = response.results || [];
+        if (!response.success || this.enrichResults.length === 0) {
           this.toastr.info(translate('edit-chapter-modal.enrich-no-results'));
         }
         this.cdRef.markForCheck();
@@ -264,16 +268,44 @@ export class EditChapterModalComponent implements OnInit {
     });
   }
 
+  selectResult(index: number) {
+    this.selectedResultIndex = index;
+    const r = this.enrichResults[index];
+    this.enrichFieldSelection = {};
+    if (r.series) this.enrichFieldSelection['series'] = true;
+    if (r.writer) this.enrichFieldSelection['writer'] = true;
+    if (r.summary) this.enrichFieldSelection['summary'] = true;
+    if (r.genre) this.enrichFieldSelection['genre'] = true;
+    if (r.year) this.enrichFieldSelection['year'] = true;
+    if (r.externalUrl) this.enrichFieldSelection['externalUrl'] = true;
+    this.cdRef.markForCheck();
+  }
+
+  backToResults() {
+    this.selectedResultIndex = null;
+    this.enrichFieldSelection = {};
+    this.cdRef.markForCheck();
+  }
+
+  getSourceLabel(source: number): string {
+    switch (source) {
+      case MetadataSource.ComicVine: return 'ComicVine';
+      case MetadataSource.OpenLibrary: return 'Open Library';
+      case MetadataSource.AniList: return 'AniList';
+      default: return 'Local';
+    }
+  }
+
   applyEnrichment() {
-    if (!this.enrichResult?.success) return;
+    if (this.selectedResultIndex == null) return;
+    const r = this.enrichResults[this.selectedResultIndex];
+    if (!r) return;
 
-    const r = this.enrichResult;
-
-    if (r.summary && !this.chapter.summaryLocked) {
+    if (this.enrichFieldSelection['summary'] && r.summary && !this.chapter.summaryLocked) {
       this.editForm.get('summary')?.setValue(r.summary);
     }
 
-    if (r.genre) {
+    if (this.enrichFieldSelection['genre'] && r.genre) {
       const newGenres: Genre[] = r.genre.split(',').map(g => g.trim()).filter(g => g).map(g => ({id: 0, title: g}));
       if (newGenres.length > 0) {
         this.chapter.genres = newGenres;
@@ -282,7 +314,7 @@ export class EditChapterModalComponent implements OnInit {
       }
     }
 
-    if (r.writer) {
+    if (this.enrichFieldSelection['writer'] && r.writer) {
       const newWriters: Person[] = r.writer.split(',').map(w => w.trim()).filter(w => w).map(w => ({
         id: 0, name: w, aliases: [], description: '', coverImageLocked: false, primaryColor: '', secondaryColor: ''
       }));
@@ -295,7 +327,7 @@ export class EditChapterModalComponent implements OnInit {
       }
     }
 
-    if (r.externalUrl) {
+    if (this.enrichFieldSelection['externalUrl'] && r.externalUrl) {
       const existing = this.chapter.webLinks ? this.chapter.webLinks.split(',').filter(l => l) : [];
       if (!existing.includes(r.externalUrl)) {
         existing.push(r.externalUrl.replaceAll(',', '%2C'));
@@ -304,7 +336,9 @@ export class EditChapterModalComponent implements OnInit {
     }
 
     this.toastr.success(translate('edit-chapter-modal.enrich-success'));
-    this.enrichResult = null;
+    this.enrichResults = [];
+    this.selectedResultIndex = null;
+    this.enrichFieldSelection = {};
     this.cdRef.markForCheck();
   }
 

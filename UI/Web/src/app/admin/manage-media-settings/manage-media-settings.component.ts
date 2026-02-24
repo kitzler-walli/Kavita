@@ -14,6 +14,8 @@ import {SettingItemComponent} from "../../settings/_components/setting-item/sett
 import {EncodeFormatPipe} from "../../_pipes/encode-format.pipe";
 import {CoverImageSizePipe} from "../../_pipes/cover-image-size.pipe";
 import {PdfRenderResolutionPipe} from "../../_pipes/pdf-render-resolution.pipe"
+import {DefaultValuePipe} from "../../_pipes/default-value.pipe"
+import {EnterBlurDirective} from "../../_directives/enter-blur.directive"
 import {ConfirmService} from "../../shared/confirm.service";
 import {takeUntilDestroyed} from "@angular/core/rxjs-interop";
 import {pageLayoutModes} from "../../_models/preferences/reading-profiles";
@@ -23,7 +25,7 @@ import {pageLayoutModes} from "../../_models/preferences/reading-profiles";
   templateUrl: './manage-media-settings.component.html',
   styleUrls: ['./manage-media-settings.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, TranslocoDirective, SettingItemComponent, EncodeFormatPipe, CoverImageSizePipe, PdfRenderResolutionPipe]
+  imports: [ReactiveFormsModule, TranslocoDirective, SettingItemComponent, EncodeFormatPipe, CoverImageSizePipe, PdfRenderResolutionPipe, DefaultValuePipe, EnterBlurDirective]
 })
 export class ManageMediaSettingsComponent implements OnInit {
 
@@ -50,6 +52,7 @@ export class ManageMediaSettingsComponent implements OnInit {
       this.settingsForm.addControl('bookmarksDirectory', new FormControl(this.serverSettings.bookmarksDirectory, [Validators.required]));
       this.settingsForm.addControl('coverImageSize', new FormControl(this.serverSettings.coverImageSize || CoverImageSize.Default, [Validators.required]));
       this.settingsForm.addControl('pdfRenderResolution', new FormControl(this.serverSettings.pdfRenderResolution || PdfRenderResolution.Default, [Validators.required]));
+      this.settingsForm.addControl('comicVineApiKey', new FormControl(this.serverSettings.comicVineApiKey || '', []));
 
 
       // Automatically save settings as we edit them
@@ -95,6 +98,7 @@ export class ManageMediaSettingsComponent implements OnInit {
     this.settingsForm.get('bookmarksDirectory')?.setValue(this.serverSettings.bookmarksDirectory, {onlySelf: true, emitEvent: false});
     this.settingsForm.get('coverImageSize')?.setValue(this.serverSettings.coverImageSize, {onlySelf: true, emitEvent: false});
     this.settingsForm.get('pdfRenderResolution')?.setValue(this.serverSettings.pdfRenderResolution, {onlySelf: true, emitEvent: false});
+    this.settingsForm.get('comicVineApiKey')?.setValue(this.serverSettings.comicVineApiKey, {onlySelf: true, emitEvent: false});
     this.settingsForm.markAsPristine();
     this.cdRef.markForCheck();
   }
@@ -105,6 +109,7 @@ export class ManageMediaSettingsComponent implements OnInit {
     modelSettings.bookmarksDirectory = this.settingsForm.get('bookmarksDirectory')?.value;
     modelSettings.coverImageSize = parseInt(this.settingsForm.get('coverImageSize')?.value, 10);
     modelSettings.pdfRenderResolution = parseInt(this.settingsForm.get('pdfRenderResolution')?.value, 10);
+    modelSettings.comicVineApiKey = this.settingsForm.get('comicVineApiKey')?.value || '';
 
     return modelSettings;
   }

@@ -116,24 +116,79 @@
                         {{t('enrich-btn')}}
                       </button>
                     </div>
-                    @if (enrichResult !== null && enrichResult.success) {
+
+                    <!-- Phase 1: Result list -->
+                    @if (enrichResults.length > 0 && selectedResultIndex === null) {
                       <div class="mt-2 small">
-                        @if (enrichResult.series) {
-                          <div><strong>Series:</strong> {{enrichResult.series}}</div>
-                        }
-                        @if (enrichResult.writer) {
-                          <div><strong>Writer:</strong> {{enrichResult.writer}}</div>
-                        }
-                        @if (enrichResult.summary) {
-                          <div><strong>Summary:</strong> {{enrichResult.summary.length > 150 ? enrichResult.summary.substring(0, 150) + '...' : enrichResult.summary}}</div>
-                        }
-                        @if (enrichResult.genre) {
-                          <div><strong>Genres:</strong> {{enrichResult.genre}}</div>
-                        }
-                        @if (enrichResult.year) {
-                          <div><strong>Year:</strong> {{enrichResult.year}}</div>
-                        }
-                        <button class="btn btn-primary btn-sm mt-1" (click)="applyEnrichment()">{{t('enrich-apply')}}</button>
+                        <div class="text-muted mb-1">{{t('enrich-results-count', {count: enrichResults.length})}}</div>
+                        <div class="enrich-results-list">
+                          @for (result of enrichResults; track $index) {
+                            <div class="enrich-result-card" (click)="selectResult($index)">
+                              <div class="d-flex justify-content-between align-items-start">
+                                <strong>{{result.series || t('enrich-untitled')}}</strong>
+                                <span class="badge bg-secondary ms-2">{{getSourceLabel(result.metadataSource)}}</span>
+                              </div>
+                              @if (result.year || result.publisher) {
+                                <div class="text-muted">
+                                  @if (result.year) { <span>{{result.year}}</span> }
+                                  @if (result.year && result.publisher) { <span> &mdash; </span> }
+                                  @if (result.publisher) { <span>{{result.publisher}}</span> }
+                                </div>
+                              }
+                              @if (result.summary) {
+                                <div class="text-muted summary-truncate">{{result.summary.length > 100 ? result.summary.substring(0, 100) + '...' : result.summary}}</div>
+                              }
+                            </div>
+                          }
+                        </div>
+                      </div>
+                    }
+
+                    <!-- Phase 2: Field selection -->
+                    @if (selectedResultIndex !== null && enrichResults[selectedResultIndex]; as selected) {
+                      <div class="mt-2 small">
+                        <a class="text-decoration-none clickable" (click)="backToResults()">
+                          <i class="fa fa-arrow-left me-1"></i>{{t('enrich-back-to-results')}}
+                        </a>
+                        <div class="mt-2">
+                          @if (selected.series) {
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" [(ngModel)]="enrichFieldSelection['series']" [ngModelOptions]="{standalone: true}">
+                              <label class="form-check-label"><strong>Series:</strong> {{selected.series}}</label>
+                            </div>
+                          }
+                          @if (selected.writer) {
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" [(ngModel)]="enrichFieldSelection['writer']" [ngModelOptions]="{standalone: true}">
+                              <label class="form-check-label"><strong>Writer:</strong> {{selected.writer}}</label>
+                            </div>
+                          }
+                          @if (selected.summary) {
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" [(ngModel)]="enrichFieldSelection['summary']" [ngModelOptions]="{standalone: true}">
+                              <label class="form-check-label"><strong>Summary:</strong> {{selected.summary.length > 150 ? selected.summary.substring(0, 150) + '...' : selected.summary}}</label>
+                            </div>
+                          }
+                          @if (selected.genre) {
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" [(ngModel)]="enrichFieldSelection['genre']" [ngModelOptions]="{standalone: true}">
+                              <label class="form-check-label"><strong>Genres:</strong> {{selected.genre}}</label>
+                            </div>
+                          }
+                          @if (selected.year) {
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" [(ngModel)]="enrichFieldSelection['year']" [ngModelOptions]="{standalone: true}">
+                              <label class="form-check-label"><strong>Year:</strong> {{selected.year}}</label>
+                            </div>
+                          }
+                          @if (selected.externalUrl) {
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" [(ngModel)]="enrichFieldSelection['externalUrl']" [ngModelOptions]="{standalone: true}">
+                              <label class="form-check-label"><strong>Link:</strong> {{selected.externalUrl}}</label>
+                            </div>
+                          }
+                        </div>
+                        <button class="btn btn-primary btn-sm mt-2" (click)="applyEnrichment()">{{t('enrich-apply')}}</button>
                       </div>
                     }
                   </div>

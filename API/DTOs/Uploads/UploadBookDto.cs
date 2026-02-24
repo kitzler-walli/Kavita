@@ -107,3 +107,23 @@ public sealed record ReEnrichResultDto
     public string Genre { get; set; } = string.Empty;
     public int Year { get; set; }
 }
+
+public sealed record EnrichmentSearchResultDto
+{
+    public int MetadataSource { get; set; }
+    public double MatchScore { get; set; }
+    public string? ExternalUrl { get; set; }
+    public string? Series { get; set; }
+    public string? Title { get; set; }
+    public string? Writer { get; set; }
+    public string? Summary { get; set; }
+    public string? Publisher { get; set; }
+    public string? Genre { get; set; }
+    public int? Year { get; set; }
+}
+
+public sealed record EnrichmentSearchResponseDto
+{
+    public bool Success { get; set; }
+    public IList<EnrichmentSearchResultDto> Results { get; set; } = [];
+}

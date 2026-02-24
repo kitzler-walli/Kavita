@@ -97,3 +97,20 @@
     opacity: 0.85;
   }
 }
+
+.enrich-results-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.enrich-result-card {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.25rem;
+  margin-bottom: 0.25rem;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--bs-tertiary-bg);
+  }
+}

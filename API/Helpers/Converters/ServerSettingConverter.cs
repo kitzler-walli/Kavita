@@ -139,6 +139,9 @@ public class ServerSettingConverter : ITypeConverter<IEnumerable<ServerSetting>,
                 case ServerSettingKey.OidcConfiguration:
                     destination.OidcConfig = JsonSerializer.Deserialize<OidcConfigDto>(row.Value)!;
                     break;
+                case ServerSettingKey.ComicVineApiKey:
+                    destination.ComicVineApiKey = row.Value;
+                    break;
                 case ServerSettingKey.LicenseKey:
                 case ServerSettingKey.EnableAuthentication:
                 case ServerSettingKey.EmailServiceUrl:

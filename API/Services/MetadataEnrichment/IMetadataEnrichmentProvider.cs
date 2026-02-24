@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,6 +39,7 @@ public record EnrichmentResult
 {
     public MetadataSource Source { get; init; }
     public bool Success { get; init; }
+    public double MatchScore { get; init; }
     public string? Series { get; init; }
     public string? Title { get; init; }
     public string? Writer { get; init; }
@@ -55,6 +57,7 @@ public interface IMetadataEnrichmentProvider
     MetadataSource Source { get; }
     bool CanHandle(EnrichmentContext context);
     Task<EnrichmentResult> EnrichAsync(EnrichmentContext context, CancellationToken ct = default);
+    Task<IList<EnrichmentResult>> SearchAsync(EnrichmentContext context, int maxResults = 5, CancellationToken ct = default);
 }
 
 /// <summary>

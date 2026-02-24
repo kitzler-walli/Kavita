@@ -71,8 +71,12 @@ public class SettingsController : BaseApiController
     {
         var settingsDto = await _unitOfWork.SettingsRepository.GetSettingsDtoAsync();
 
-        // Do not send OIDC secret to user
+        // Do not send secrets to user
         settingsDto.OidcConfig.Secret = "*".Repeat(settingsDto.OidcConfig.Secret.Length);
+        if (!string.IsNullOrEmpty(settingsDto.ComicVineApiKey))
+        {
+            settingsDto.ComicVineApiKey = "*".Repeat(settingsDto.ComicVineApiKey.Length);
+        }
         return Ok(settingsDto);
     }
 

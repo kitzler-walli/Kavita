@@ -483,7 +483,8 @@
         "enrich-source-auto": "{{edit-series-modal.enrich-source-auto}}",
         "enrich-source-comicvine": "{{edit-series-modal.enrich-source-comicvine}}",
         "enrich-source-openlibrary": "{{edit-series-modal.enrich-source-openlibrary}}",
-        "enrich-source-anilist": "{{edit-series-modal.enrich-source-anilist}}"
+        "enrich-source-anilist": "{{edit-series-modal.enrich-source-anilist}}",
+        "enrich-untitled": "{{edit-series-modal.enrich-untitled}}"
     },
 
     "client-device-card": {
@@ -1773,7 +1774,9 @@
         "pdf-render-resolution-label": "PDF Render Resolution",
         "pdf-render-resolution-tooltip": "Resolution at which PDFs will be rendered. Higher resolutions will take longer to render and consume more memory. If you experience issues with PDF rendering, try lowering this.",
         "cover-image-size-label": "Cover Image Size",
-        "cover-image-size-tooltip": "How large should cover images generate as. Note: Anything larger than the default will incur longer page load times."
+        "cover-image-size-tooltip": "How large should cover images generate as. Note: Anything larger than the default will incur longer page load times.",
+        "comicvine-api-key-label": "ComicVine API Key",
+        "comicvine-api-key-tooltip": "API key for ComicVine metadata lookups during book upload enrichment. Get one at comicvine.gamespot.com/api."
     },
 
     "pdf-render-resolution": {
@@ -2628,7 +2631,10 @@
         "enrich-source-auto": "Auto",
         "enrich-source-comicvine": "ComicVine",
         "enrich-source-openlibrary": "Open Library",
-        "enrich-source-anilist": "AniList"
+        "enrich-source-anilist": "AniList",
+        "enrich-results-count": "{{count}} results found",
+        "enrich-untitled": "(Untitled)",
+        "enrich-back-to-results": "Back to results"
     },
 
     "edit-chapter-modal": {
@@ -2692,7 +2698,10 @@
         "enrich-source-auto": "{{edit-series-modal.enrich-source-auto}}",
         "enrich-source-comicvine": "{{edit-series-modal.enrich-source-comicvine}}",
         "enrich-source-openlibrary": "{{edit-series-modal.enrich-source-openlibrary}}",
-        "enrich-source-anilist": "{{edit-series-modal.enrich-source-anilist}}"
+        "enrich-source-anilist": "{{edit-series-modal.enrich-source-anilist}}",
+        "enrich-results-count": "{{edit-series-modal.enrich-results-count}}",
+        "enrich-untitled": "{{edit-series-modal.enrich-untitled}}",
+        "enrich-back-to-results": "{{edit-series-modal.enrich-back-to-results}}"
     },
 
     "edit-volume-modal": {

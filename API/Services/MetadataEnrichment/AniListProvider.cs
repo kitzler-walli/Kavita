@@ -39,6 +39,25 @@ public class AniListProvider : IMetadataEnrichmentProvider
           }
         }";
 
+    private const string SearchMediaQuery = @"
+        query ($search: String!, $perPage: Int!) {
+          Page(page: 1, perPage: $perPage) {
+            media(search: $search, type: MANGA) {
+              id
+              siteUrl
+              title { romaji english native }
+              volumes
+              chapters
+              startDate { year }
+              description(asHtml: false)
+              genres
+              staff(sort: RELEVANCE, perPage: 5) {
+                edges { node { name { full } } role }
+              }
+            }
+          }
+        }";
+
     private readonly ILogger<AniListProvider> _logger;
 
     public AniListProvider(ILogger<AniListProvider> logger)
@@ -164,6 +183,100 @@ public class AniListProvider : IMetadataEnrichmentProvider
             Year = context.Year == 0 ? bestMatch.StartDate?.Year : null,
             ExternalUrl = bestMatch.SiteUrl
         };
+    }
+
+    public async Task<IList<EnrichmentResult>> SearchAsync(EnrichmentContext context, int maxResults = 5, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(context.Series))
+        {
+            return [];
+        }
+
+        if (!RateLimiter.TryAcquire(string.Empty))
+        {
+            _logger.LogInformation("AniList rate limit exhausted, skipping search");
+
+            return [];
+        }
+
+        var searchTerm = SearchTermCleaner.Clean(context.Series);
+        var body = new
+        {
+            query = SearchMediaQuery,
+            variables = new { search = searchTerm, perPage = maxResults }
+        };
+
+        IFlurlResponse response;
+        try
+        {
+            response = await GraphQlUrl
+                .WithHeader("Content-Type", "application/json")
+                .WithHeader("Accept", "application/json")
+                .PostJsonAsync(body, cancellationToken: ct);
+        }
+        catch (FlurlHttpException ex) when (ex.StatusCode == 429)
+        {
+            var retryAfter = 60;
+            if (ex.Call?.Response?.Headers != null &&
+                ex.Call.Response.Headers.TryGetFirst("Retry-After", out var retryVal) &&
+                int.TryParse(retryVal, out var parsed) && parsed > 0)
+            {
+                retryAfter = Math.Min(parsed, 90);
+            }
+
+            _logger.LogInformation("AniList returned 429, waiting {Seconds}s before retry", retryAfter);
+            await Task.Delay(TimeSpan.FromSeconds(retryAfter), ct);
+
+            response = await GraphQlUrl
+                .WithHeader("Content-Type", "application/json")
+                .WithHeader("Accept", "application/json")
+                .PostJsonAsync(body, cancellationToken: ct);
+        }
+
+        var json = await response.GetStringAsync();
+        var result = JsonSerializer.Deserialize<AniListGraphQlResponse>(json);
+
+        var mediaList = result?.Data?.Page?.Media;
+        if (mediaList == null || mediaList.Count == 0)
+        {
+            return [];
+        }
+
+        var results = new List<EnrichmentResult>();
+        foreach (var media in mediaList)
+        {
+            var score = BestTitleSimilarity(media.Title, context.Series);
+
+            string? writer = null;
+            var storyStaff = media.Staff?.Edges?
+                .FirstOrDefault(e => e.Role != null &&
+                                     e.Role.Contains("Story", StringComparison.OrdinalIgnoreCase));
+            if (storyStaff?.Node?.Name?.Full != null)
+            {
+                writer = storyStaff.Node.Name.Full;
+            }
+
+            var summary = media.Description;
+            if (!string.IsNullOrWhiteSpace(summary))
+            {
+                summary = StripHtml(summary);
+            }
+
+            results.Add(new EnrichmentResult
+            {
+                Source = Source,
+                Success = true,
+                MatchScore = score,
+                Series = media.Title?.English ?? media.Title?.Romaji,
+                Writer = writer,
+                Summary = summary,
+                Genre = media.Genres is { Count: > 0 } ? string.Join(", ", media.Genres) : null,
+                Year = media.StartDate?.Year,
+                ExternalUrl = media.SiteUrl
+            });
+        }
+
+        return results.OrderByDescending(r => r.MatchScore).ToList();
     }
 
     private static double BestTitleSimilarity(AniListTitle? title, string search)

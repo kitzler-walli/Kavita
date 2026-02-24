@@ -29,6 +29,7 @@ export interface ServerSettings {
     pdfRenderResolution: PdfRenderResolution;
     smtpConfig: SmtpConfig;
     oidcConfig: OidcConfig;
+    comicVineApiKey: string;
     installId: string;
     installVersion: string;
 }

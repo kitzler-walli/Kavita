@@ -58,3 +58,21 @@ export interface ReEnrichResultDto {
   genre: string;
   year: number;
 }
+
+export interface EnrichmentSearchResultDto {
+  metadataSource: number;
+  matchScore: number;
+  externalUrl?: string;
+  series?: string;
+  title?: string;
+  writer?: string;
+  summary?: string;
+  publisher?: string;
+  genre?: string;
+  year?: number;
+}
+
+export interface EnrichmentSearchResponseDto {
+  success: boolean;
+  results: EnrichmentSearchResultDto[];
+}

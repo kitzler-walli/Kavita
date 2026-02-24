@@ -154,6 +154,164 @@ public class OpenLibraryProvider : IMetadataEnrichmentProvider
         };
     }
 
+    public async Task<IList<EnrichmentResult>> SearchAsync(EnrichmentContext context, int maxResults = 5, CancellationToken ct = default)
+    {
+        if (!RateLimiter.TryAcquire(string.Empty))
+        {
+            _logger.LogInformation("Open Library rate limit exhausted, skipping search");
+
+            return [];
+        }
+
+        // ISBN lookup: returns single result
+        if (!string.IsNullOrWhiteSpace(context.Isbn))
+        {
+            var result = await SearchByIsbn(context, ct);
+            if (result != null)
+            {
+                return [result];
+            }
+
+            return [];
+        }
+
+        // Title search
+        if (!string.IsNullOrWhiteSpace(context.Series))
+        {
+            return await SearchByTitle(context, maxResults, ct);
+        }
+
+        return [];
+    }
+
+    private async Task<EnrichmentResult?> SearchByIsbn(EnrichmentContext context, CancellationToken ct)
+    {
+        try
+        {
+            var json = await $"{BaseUrl}/isbn/{context.Isbn}.json"
+                .WithHeader("User-Agent", "Kavita/1.0 (self-hosted book server)")
+                .GetStringAsync(cancellationToken: ct);
+
+            var edition = JsonSerializer.Deserialize<OpenLibraryEdition>(json);
+            if (edition == null)
+            {
+                return null;
+            }
+
+            var externalUrl = !string.IsNullOrWhiteSpace(edition.Key)
+                ? $"{BaseUrl}{edition.Key}"
+                : null;
+
+            return new EnrichmentResult
+            {
+                Source = Source,
+                Success = true,
+                MatchScore = 1.0,
+                Title = edition.Title,
+                Publisher = edition.Publishers is { Count: > 0 } ? edition.Publishers[0] : null,
+                Year = edition.PublishDate != null ? ExtractYear(edition.PublishDate) : null,
+                Summary = edition.Description != null ? GetDescriptionText(edition.Description) : null,
+                Genre = edition.Subjects is { Count: > 0 } ? string.Join(", ", edition.Subjects.Take(5)) : null,
+                ExternalUrl = externalUrl
+            };
+        }
+        catch (FlurlHttpException ex) when (ex.StatusCode == 404)
+        {
+            _logger.LogDebug("ISBN {Isbn} not found on Open Library", context.Isbn);
+
+            return null;
+        }
+    }
+
+    private async Task<IList<EnrichmentResult>> SearchByTitle(EnrichmentContext context, int maxResults, CancellationToken ct)
+    {
+        var searchTerm = SearchTermCleaner.Clean(context.Series);
+        var queryParams = new Dictionary<string, object>
+        {
+            ["title"] = searchTerm,
+            ["limit"] = maxResults.ToString(),
+            ["fields"] = "title,author_name,first_publish_year,isbn,publisher,subject,key"
+        };
+
+        if (!string.IsNullOrWhiteSpace(context.Writer))
+        {
+            queryParams["author"] = context.Writer;
+        }
+
+        var searchResult = await new Url($"{BaseUrl}/search.json")
+            .SetQueryParams(queryParams)
+            .WithHeader("User-Agent", "Kavita/1.0 (self-hosted book server)")
+            .GetJsonAsync<OpenLibrarySearchResult>(cancellationToken: ct);
+
+        if (searchResult?.Docs == null || searchResult.Docs.Count == 0)
+        {
+            return [];
+        }
+
+        var results = new List<EnrichmentResult>();
+        foreach (var doc in searchResult.Docs)
+        {
+            var externalUrl = !string.IsNullOrWhiteSpace(doc.Key)
+                ? $"{BaseUrl}{doc.Key}"
+                : null;
+
+            results.Add(new EnrichmentResult
+            {
+                Source = Source,
+                Success = true,
+                MatchScore = doc.Title != null ? StringSimilarity(doc.Title, context.Series) : 0,
+                Series = doc.Title,
+                Writer = doc.AuthorName is { Count: > 0 } ? string.Join(", ", doc.AuthorName) : null,
+                Year = doc.FirstPublishYear,
+                Publisher = doc.Publisher is { Count: > 0 } ? doc.Publisher[0] : null,
+                Genre = doc.Subject is { Count: > 0 } ? string.Join(", ", doc.Subject.Take(5)) : null,
+                ExternalUrl = externalUrl
+            });
+        }
+
+        return results;
+    }
+
+    private static double StringSimilarity(string a, string b)
+    {
+        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return 0;
+
+        a = a.Trim().ToLowerInvariant();
+        b = b.Trim().ToLowerInvariant();
+
+        if (a == b) return 1.0;
+
+        var maxLen = Math.Max(a.Length, b.Length);
+        if (maxLen == 0) return 1.0;
+
+        var distance = LevenshteinDistance(a, b);
+
+        return 1.0 - ((double)distance / maxLen);
+    }
+
+    private static int LevenshteinDistance(string s, string t)
+    {
+        var n = s.Length;
+        var m = t.Length;
+        var d = new int[n + 1, m + 1];
+
+        for (var i = 0; i <= n; i++) d[i, 0] = i;
+        for (var j = 0; j <= m; j++) d[0, j] = j;
+
+        for (var i = 1; i <= n; i++)
+        {
+            for (var j = 1; j <= m; j++)
+            {
+                var cost = s[i - 1] == t[j - 1] ? 0 : 1;
+                d[i, j] = Math.Min(
+                    Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+                    d[i - 1, j - 1] + cost);
+            }
+        }
+
+        return d[n, m];
+    }
+
     private static int? ExtractYear(string dateStr)
     {
         // Try common formats: "2020", "January 1, 2020", "2020-01-01"

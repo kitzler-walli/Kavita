@@ -35,6 +35,12 @@ public interface IUploadBookService
     /// </summary>
     Task<ReEnrichResultDto> ReEnrichAsync(string searchTerm, MangaFormat format,
         string? number = null, string? isbn = null, MetadataSource? source = null);
+
+    /// <summary>
+    /// Search for enrichment metadata across all applicable providers. Returns multiple results for user selection.
+    /// </summary>
+    Task<EnrichmentSearchResponseDto> SearchEnrichAsync(string searchTerm, MangaFormat format,
+        string? number = null, string? isbn = null, MetadataSource? source = null);
 }
 
 public class UploadBookService : IUploadBookService
@@ -377,6 +383,55 @@ public class UploadBookService : IUploadBookService
             _logger.LogWarning(ex, "Re-enrichment failed for search term '{SearchTerm}'", searchTerm);
 
             return new ReEnrichResultDto { Success = false };
+        }
+    }
+
+    public async Task<EnrichmentSearchResponseDto> SearchEnrichAsync(string searchTerm, MangaFormat format,
+        string? number = null, string? isbn = null, MetadataSource? source = null)
+    {
+        var context = new EnrichmentContext
+        {
+            Format = format,
+            Series = searchTerm,
+            Title = string.Empty,
+            Writer = string.Empty,
+            Volume = string.Empty,
+            Number = number ?? string.Empty,
+            Isbn = isbn ?? string.Empty,
+            Summary = string.Empty,
+            Publisher = string.Empty,
+            Genre = string.Empty,
+            Year = 0,
+            PreferredSource = source,
+        };
+
+        try
+        {
+            var results = await _enrichmentService.SearchAsync(context);
+
+            return new EnrichmentSearchResponseDto
+            {
+                Success = results.Count > 0,
+                Results = results.Select(r => new EnrichmentSearchResultDto
+                {
+                    MetadataSource = (int)r.Source,
+                    MatchScore = r.MatchScore,
+                    ExternalUrl = r.ExternalUrl,
+                    Series = r.Series,
+                    Title = r.Title,
+                    Writer = r.Writer,
+                    Summary = r.Summary,
+                    Publisher = r.Publisher,
+                    Genre = r.Genre,
+                    Year = r.Year
+                }).ToList()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Search enrichment failed for search term '{SearchTerm}'", searchTerm);
+
+            return new EnrichmentSearchResponseDto { Success = false };
         }
     }
 

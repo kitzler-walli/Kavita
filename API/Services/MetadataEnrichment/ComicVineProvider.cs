@@ -143,6 +143,67 @@ public class ComicVineProvider : IMetadataEnrichmentProvider
         };
     }
 
+    public async Task<IList<EnrichmentResult>> SearchAsync(EnrichmentContext context, int maxResults = 5, CancellationToken ct = default)
+    {
+        var apiKey = (await _unitOfWork.SettingsRepository.GetSettingAsync(ServerSettingKey.ComicVineApiKey)).Value;
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            _logger.LogDebug("ComicVine API key not configured, skipping search");
+
+            return [];
+        }
+
+        if (!RateLimiter.TryAcquire(string.Empty))
+        {
+            _logger.LogInformation("ComicVine rate limit exhausted, skipping search");
+
+            return [];
+        }
+
+        var searchTerm = SearchTermCleaner.Clean(context.Series);
+        var searchResult = await new Url($"{BaseUrl}/search/")
+            .SetQueryParams(new
+            {
+                api_key = apiKey,
+                format = "json",
+                resources = "volume",
+                query = searchTerm,
+                field_list = "id,name,start_year,publisher,description,count_of_issues,site_detail_url"
+            })
+            .WithHeader("User-Agent", "Kavita/1.0 (self-hosted book server)")
+            .GetJsonAsync<ComicVineSearchResponse>(cancellationToken: ct);
+
+        if (searchResult?.Results == null || searchResult.Results.Count == 0)
+        {
+            return [];
+        }
+
+        var results = new List<EnrichmentResult>();
+        foreach (var volume in searchResult.Results.Take(maxResults))
+        {
+            var score = StringSimilarity(volume.Name ?? string.Empty, context.Series);
+            int? year = null;
+            if (int.TryParse(volume.StartYear, out var startYear))
+            {
+                year = startYear;
+            }
+
+            results.Add(new EnrichmentResult
+            {
+                Source = Source,
+                Success = true,
+                MatchScore = score,
+                Series = volume.Name,
+                Summary = volume.Description != null ? StripHtml(volume.Description) : null,
+                Publisher = volume.Publisher?.Name,
+                Year = year,
+                ExternalUrl = volume.SiteDetailUrl
+            });
+        }
+
+        return results.OrderByDescending(r => r.MatchScore).ToList();
+    }
+
     private static double StringSimilarity(string a, string b)
     {
         if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return 0;
@@ -215,6 +276,9 @@ public class ComicVineProvider : IMetadataEnrichmentProvider
 
         [JsonPropertyName("count_of_issues")]
         public int? CountOfIssues { get; set; }
+
+        [JsonPropertyName("site_detail_url")]
+        public string? SiteDetailUrl { get; set; }
     }
 
     private class ComicVinePublisher

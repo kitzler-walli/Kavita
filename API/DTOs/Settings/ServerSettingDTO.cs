@@ -101,6 +101,11 @@ public sealed record ServerSettingDto
     public OidcConfigDto OidcConfig { get; set; }
 
     /// <summary>
+    /// API key for ComicVine metadata lookups
+    /// </summary>
+    public string ComicVineApiKey { get; set; } = string.Empty;
+
+    /// <summary>
     /// The Date Kavita was first installed
     /// </summary>
     public DateTime? FirstInstallDate { get; set; }

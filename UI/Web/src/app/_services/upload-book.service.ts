@@ -2,7 +2,7 @@ import {inject, Injectable} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {Observable, Subject} from 'rxjs';
 import {environment} from 'src/environments/environment';
-import {ConfirmUploadDto, MetadataSource, ReEnrichResultDto, UploadBookFileDto} from '../_models/upload/upload-book-file-dto';
+import {ConfirmUploadDto, EnrichmentSearchResponseDto, MetadataSource, ReEnrichResultDto, UploadBookFileDto} from '../_models/upload/upload-book-file-dto';
 import {MangaFormat} from '../_models/manga-format';
 import {AccountService} from './account.service';
 
@@ -51,6 +51,10 @@ export class UploadBookService {
 
   reEnrich(searchTerm: string, format: MangaFormat, number?: string, isbn?: string, source?: MetadataSource): Observable<ReEnrichResultDto> {
     return this.httpClient.post<ReEnrichResultDto>(this.baseUrl + 'upload/re-enrich', {searchTerm, format, number, isbn, source});
+  }
+
+  searchEnrich(searchTerm: string, format: MangaFormat, number?: string, isbn?: string, source?: MetadataSource): Observable<EnrichmentSearchResponseDto> {
+    return this.httpClient.post<EnrichmentSearchResponseDto>(this.baseUrl + 'upload/search-enrich', {searchTerm, format, number, isbn, source});
   }
 
   private async processFilesSequentially(files: File[], subject: Subject<UploadProgressEvent>) {

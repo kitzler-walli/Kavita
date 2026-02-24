@@ -62,6 +62,19 @@
         </div>
 
         <div class="row g-0 mt-2">
+          @if(settingsForm.get('comicVineApiKey'); as formControl) {
+            <app-setting-item [title]="t('comicvine-api-key-label')" [subtitle]="t('comicvine-api-key-tooltip')">
+              <ng-template #view>
+                {{formControl.value ? '********' : null | defaultValue}}
+              </ng-template>
+              <ng-template #edit>
+                <input id="settings-comicvine-api-key" class="form-control" formControlName="comicVineApiKey" type="text" appEnterBlur>
+              </ng-template>
+            </app-setting-item>
+          }
+        </div>
+
+        <div class="row g-0 mt-2">
           @if(settingsForm.get('bookmarksDirectory'); as formControl) {
             <app-setting-item [title]="t('bookmark-dir-label')" [subtitle]="t('bookmark-dir-tooltip')">
               <ng-template #view>

@@ -12,6 +12,7 @@ namespace API.Services.MetadataEnrichment;
 public interface IMetadataEnrichmentService
 {
     Task<EnrichmentResult> EnrichAsync(EnrichmentContext context, CancellationToken ct = default);
+    Task<IList<EnrichmentResult>> SearchAsync(EnrichmentContext context, CancellationToken ct = default);
 }
 
 public class MetadataEnrichmentService : IMetadataEnrichmentService
@@ -59,5 +60,38 @@ public class MetadataEnrichmentService : IMetadataEnrichmentService
         }
 
         return new EnrichmentResult { Source = MetadataSource.Local, Success = false };
+    }
+
+    public async Task<IList<EnrichmentResult>> SearchAsync(EnrichmentContext context, CancellationToken ct = default)
+    {
+        var applicable = _providers
+            .Where(p => p.CanHandle(context))
+            .Where(p => context.PreferredSource == null || p.Source == context.PreferredSource)
+            .OrderBy(p => p.Source)
+            .ToList();
+
+        var allResults = new List<EnrichmentResult>();
+
+        foreach (var provider in applicable)
+        {
+            try
+            {
+                _logger.LogDebug("Searching enrichment provider {Source} for '{Series}'",
+                    provider.Source, context.Series);
+
+                var results = await provider.SearchAsync(context, ct: ct);
+                allResults.AddRange(results);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Enrichment search provider {Source} failed for '{Series}', continuing to next",
+                    provider.Source, context.Series);
+            }
+        }
+
+        return allResults
+            .OrderByDescending(r => r.MatchScore)
+            .ThenBy(r => r.Source)
+            .ToList();
     }
 }

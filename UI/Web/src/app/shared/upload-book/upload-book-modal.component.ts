@@ -10,7 +10,7 @@ import {
 import {UploadBookService} from '../../_services/upload-book.service';
 import {LibraryService} from '../../_services/library.service';
 import {Library} from '../../_models/library/library';
-import {ConfirmUploadFileDto, MetadataSource, ReEnrichResultDto, UploadBookFileDto} from '../../_models/upload/upload-book-file-dto';
+import {ConfirmUploadFileDto, EnrichmentSearchResultDto, MetadataSource, ReEnrichResultDto, UploadBookFileDto} from '../../_models/upload/upload-book-file-dto';
 import {MangaFormat} from '../../_models/manga-format';
 
 enum UploadStep {
@@ -59,6 +59,7 @@ export class UploadBookModalComponent implements OnInit {
   reEnrichTerms: string[] = [];
   reEnrichLoading = new Set<number>();
   reEnrichSources: (MetadataSource | null)[] = [];
+  reEnrichResults: EnrichmentSearchResultDto[][] = [];
 
   ngOnInit(): void {
     this.libraryService.getLibraries().subscribe(libs => {
@@ -228,6 +229,7 @@ export class UploadBookModalComponent implements OnInit {
     });
     this.reEnrichTerms = this.uploadedFiles.map(file => file.series);
     this.reEnrichSources = this.uploadedFiles.map(() => null);
+    this.reEnrichResults = this.uploadedFiles.map(() => []);
   }
 
   applySeriestoAll(index: number) {
@@ -242,28 +244,15 @@ export class UploadBookModalComponent implements OnInit {
     if (!term || this.reEnrichLoading.has(index)) return;
 
     this.reEnrichLoading.add(index);
+    this.reEnrichResults[index] = [];
     this.cdRef.markForCheck();
 
     const source = this.reEnrichSources[index];
-    this.uploadService.reEnrich(term, this.uploadedFiles[index].format, undefined, undefined, source ?? undefined).subscribe({
-      next: (result: ReEnrichResultDto) => {
+    this.uploadService.searchEnrich(term, this.uploadedFiles[index].format, undefined, undefined, source ?? undefined).subscribe({
+      next: (response) => {
         this.reEnrichLoading.delete(index);
-        if (result.success) {
-          const file = this.uploadedFiles[index];
-          if (result.series) file.series = result.series;
-          if (result.title) file.title = result.title;
-          if (result.writer) file.writer = result.writer;
-          if (result.summary) file.summary = result.summary;
-          if (result.publisher) file.publisher = result.publisher;
-          if (result.genre) file.genre = result.genre;
-          if (result.year) file.year = result.year;
-          file.metadataSource = result.metadataSource;
-          file.externalUrl = result.externalUrl;
-
-          // Update form controls
-          if (result.series) this.fileForms[index].controls['series'].setValue(result.series);
-
-          this.toastr.success(translate('upload-book-modal.re-enrich-success'));
+        if (response.success && response.results.length > 0) {
+          this.reEnrichResults[index] = response.results;
         } else {
           this.toastr.info(translate('upload-book-modal.re-enrich-no-results'));
         }
@@ -275,6 +264,37 @@ export class UploadBookModalComponent implements OnInit {
         this.cdRef.markForCheck();
       }
     });
+  }
+
+  applyReEnrichResult(fileIndex: number, resultIndex: number) {
+    const r = this.reEnrichResults[fileIndex]?.[resultIndex];
+    if (!r) return;
+
+    const file = this.uploadedFiles[fileIndex];
+    if (r.series) file.series = r.series;
+    if (r.title) file.title = r.title;
+    if (r.writer) file.writer = r.writer;
+    if (r.summary) file.summary = r.summary;
+    if (r.publisher) file.publisher = r.publisher;
+    if (r.genre) file.genre = r.genre;
+    if (r.year) file.year = r.year;
+    file.metadataSource = r.metadataSource;
+    file.externalUrl = r.externalUrl;
+
+    if (r.series) this.fileForms[fileIndex].controls['series'].setValue(r.series);
+
+    this.reEnrichResults[fileIndex] = [];
+    this.toastr.success(translate('upload-book-modal.re-enrich-success'));
+    this.cdRef.markForCheck();
+  }
+
+  getSourceLabel(source: number): string {
+    switch (source) {
+      case MetadataSource.ComicVine: return 'ComicVine';
+      case MetadataSource.OpenLibrary: return 'Open Library';
+      case MetadataSource.AniList: return 'AniList';
+      default: return 'Local';
+    }
   }
 
   hasMetadata(file: UploadBookFileDto): boolean {

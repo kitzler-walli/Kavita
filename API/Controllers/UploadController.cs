@@ -558,6 +558,27 @@ public class UploadController : BaseApiController
     }
 
     /// <summary>
+    /// Search for enrichment metadata from external providers. Returns multiple results for user selection.
+    /// </summary>
+    [HttpPost("search-enrich")]
+    [DisallowRole(PolicyConstants.ReadOnlyRole)]
+    public async Task<ActionResult<EnrichmentSearchResponseDto>> SearchEnrich(ReEnrichUploadDto dto)
+    {
+        try
+        {
+            var result = await _uploadBookService.SearchEnrichAsync(dto.SearchTerm, dto.Format, dto.Number, dto.Isbn, dto.Source);
+
+            return Ok(result);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "There was an issue searching enrichment metadata for search term '{SearchTerm}'", dto.SearchTerm);
+
+            return BadRequest("An error occurred while searching for metadata");
+        }
+    }
+
+    /// <summary>
     /// Confirm placement of previously uploaded files into a library folder. Triggers a library scan.
     /// </summary>
     /// <param name="dto">The confirmation details including target library and file metadata</param>

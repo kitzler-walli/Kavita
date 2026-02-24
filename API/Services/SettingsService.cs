@@ -474,6 +474,17 @@ public class SettingsService : ISettingsService
                 setting.Value = updateSettingsDto.EnableFolderWatching + string.Empty;
                 _unitOfWork.SettingsRepository.Update(setting);
             }
+
+            if (setting.Key == ServerSettingKey.ComicVineApiKey)
+            {
+                // If the value is all asterisks, the user didn't change it (it was masked)
+                var newKey = updateSettingsDto.ComicVineApiKey + string.Empty;
+                if (newKey != setting.Value && newKey != "*".Repeat(setting.Value.Length))
+                {
+                    setting.Value = newKey;
+                    _unitOfWork.SettingsRepository.Update(setting);
+                }
+            }
         }
 
         if (!_unitOfWork.HasChanges()) return updateSettingsDto;
