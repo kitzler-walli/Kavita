@@ -28,6 +28,7 @@ public record EnrichmentContext
     public string Publisher { get; init; } = string.Empty;
     public string Genre { get; init; } = string.Empty;
     public int Year { get; init; }
+    public MetadataSource? PreferredSource { get; init; }
 }
 
 /// <summary>

@@ -1,5 +1,12 @@
 import {MangaFormat} from '../manga-format';
 
+export enum MetadataSource {
+  Local = 0,
+  ComicVine = 1,
+  OpenLibrary = 2,
+  AniList = 3
+}
+
 export interface UploadBookFileDto {
   tempFileName: string;
   originalFileName: string;

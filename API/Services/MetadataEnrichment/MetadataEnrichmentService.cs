@@ -31,6 +31,7 @@ public class MetadataEnrichmentService : IMetadataEnrichmentService
     {
         var applicable = _providers
             .Where(p => p.CanHandle(context))
+            .Where(p => context.PreferredSource == null || p.Source == context.PreferredSource)
             .OrderBy(p => p.Source) // ComicVine=1 first, then OpenLibrary=2, then AniList=3
             .ToList();
 

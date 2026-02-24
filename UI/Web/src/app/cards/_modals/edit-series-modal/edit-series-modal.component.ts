@@ -37,12 +37,13 @@ import {MetadataService} from 'src/app/_services/metadata.service';
 import {SeriesService} from 'src/app/_services/series.service';
 import {UploadService} from 'src/app/_services/upload.service';
 import {UploadBookService} from 'src/app/_services/upload-book.service';
-import {ReEnrichResultDto} from 'src/app/_models/upload/upload-book-file-dto';
+import {MetadataSource, ReEnrichResultDto} from 'src/app/_models/upload/upload-book-file-dto';
 import {takeUntilDestroyed} from "@angular/core/rxjs-interop";
 import {TypeaheadComponent} from "../../../typeahead/_components/typeahead.component";
 import {CoverImageChooserComponent} from "../../cover-image-chooser/cover-image-chooser.component";
 import {EditSeriesRelationComponent} from "../../edit-series-relation/edit-series-relation.component";
 import {SentenceCasePipe} from "../../../_pipes/sentence-case.pipe";
+import {MangaFormat} from "../../../_models/manga-format";
 import {MangaFormatPipe} from "../../../_pipes/manga-format.pipe";
 import {DefaultDatePipe} from "../../../_pipes/default-date.pipe";
 import {TimeAgoPipe} from "../../../_pipes/time-ago.pipe";
@@ -169,6 +170,7 @@ export class EditSeriesModalComponent implements OnInit {
   enrichSearchTerm = '';
   enrichLoading = false;
   enrichResult: ReEnrichResultDto | null = null;
+  enrichSource: MetadataSource | null = null;
 
 
   // Typeaheads
@@ -520,7 +522,7 @@ export class EditSeriesModalComponent implements OnInit {
     this.enrichResult = null;
     this.cdRef.markForCheck();
 
-    this.uploadBookService.reEnrich(term, this.series.format).subscribe({
+    this.uploadBookService.reEnrich(term, this.series.format, undefined, undefined, this.enrichSource ?? undefined).subscribe({
       next: (result) => {
         this.enrichLoading = false;
         this.enrichResult = result;
@@ -725,4 +727,20 @@ export class EditSeriesModalComponent implements OnInit {
   }
 
   protected readonly LooseLeafOrDefaultNumber = LooseLeafOrDefaultNumber;
+  protected readonly MetadataSource = MetadataSource;
+
+  get availableProviders(): {value: MetadataSource; label: string}[] {
+    const format = this.series.format;
+    const providers: {value: MetadataSource; label: string}[] = [];
+    if (format === MangaFormat.ARCHIVE) {
+      providers.push({value: MetadataSource.ComicVine, label: 'enrich-source-comicvine'});
+      providers.push({value: MetadataSource.AniList, label: 'enrich-source-anilist'});
+    } else if (format === MangaFormat.EPUB) {
+      providers.push({value: MetadataSource.OpenLibrary, label: 'enrich-source-openlibrary'});
+      providers.push({value: MetadataSource.AniList, label: 'enrich-source-anilist'});
+    } else if (format === MangaFormat.PDF) {
+      providers.push({value: MetadataSource.OpenLibrary, label: 'enrich-source-openlibrary'});
+    }
+    return providers;
+  }
 }

@@ -10,7 +10,8 @@ import {
 import {UploadBookService} from '../../_services/upload-book.service';
 import {LibraryService} from '../../_services/library.service';
 import {Library} from '../../_models/library/library';
-import {ConfirmUploadFileDto, ReEnrichResultDto, UploadBookFileDto} from '../../_models/upload/upload-book-file-dto';
+import {ConfirmUploadFileDto, MetadataSource, ReEnrichResultDto, UploadBookFileDto} from '../../_models/upload/upload-book-file-dto';
+import {MangaFormat} from '../../_models/manga-format';
 
 enum UploadStep {
   Select,
@@ -57,6 +58,7 @@ export class UploadBookModalComponent implements OnInit {
   expandedRows = new Set<number>();
   reEnrichTerms: string[] = [];
   reEnrichLoading = new Set<number>();
+  reEnrichSources: (MetadataSource | null)[] = [];
 
   ngOnInit(): void {
     this.libraryService.getLibraries().subscribe(libs => {
@@ -225,6 +227,7 @@ export class UploadBookModalComponent implements OnInit {
       });
     });
     this.reEnrichTerms = this.uploadedFiles.map(file => file.series);
+    this.reEnrichSources = this.uploadedFiles.map(() => null);
   }
 
   applySeriestoAll(index: number) {
@@ -241,7 +244,8 @@ export class UploadBookModalComponent implements OnInit {
     this.reEnrichLoading.add(index);
     this.cdRef.markForCheck();
 
-    this.uploadService.reEnrich(term, this.uploadedFiles[index].format).subscribe({
+    const source = this.reEnrichSources[index];
+    this.uploadService.reEnrich(term, this.uploadedFiles[index].format, undefined, undefined, source ?? undefined).subscribe({
       next: (result: ReEnrichResultDto) => {
         this.reEnrichLoading.delete(index);
         if (result.success) {
@@ -317,6 +321,21 @@ export class UploadBookModalComponent implements OnInit {
         this.cdRef.markForCheck();
       }
     });
+  }
+
+  getProvidersForFile(index: number): {value: MetadataSource; label: string}[] {
+    const format = this.uploadedFiles[index]?.format;
+    const providers: {value: MetadataSource; label: string}[] = [];
+    if (format === MangaFormat.ARCHIVE) {
+      providers.push({value: MetadataSource.ComicVine, label: 'enrich-source-comicvine'});
+      providers.push({value: MetadataSource.AniList, label: 'enrich-source-anilist'});
+    } else if (format === MangaFormat.EPUB) {
+      providers.push({value: MetadataSource.OpenLibrary, label: 'enrich-source-openlibrary'});
+      providers.push({value: MetadataSource.AniList, label: 'enrich-source-anilist'});
+    } else if (format === MangaFormat.PDF) {
+      providers.push({value: MetadataSource.OpenLibrary, label: 'enrich-source-openlibrary'});
+    }
+    return providers;
   }
 
   close() {

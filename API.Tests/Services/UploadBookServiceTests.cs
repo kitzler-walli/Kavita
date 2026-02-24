@@ -441,5 +441,27 @@ public class UploadBookServiceTests(ITestOutputHelper outputHelper) : AbstractDb
             Arg.Any<System.Threading.CancellationToken>());
     }
 
+    [Fact]
+    public async Task ReEnrichAsync_PassesNumberIsbnAndSourceToEnrichmentService()
+    {
+        var (unitOfWork, _, _) = await CreateDatabase();
+        var enrichmentService = Substitute.For<IMetadataEnrichmentService>();
+        enrichmentService.EnrichAsync(Arg.Any<EnrichmentContext>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns(new EnrichmentResult { Success = false, Source = MetadataSource.Local });
+
+        var service = CreateService(unitOfWork, enrichmentService: enrichmentService);
+
+        await service.ReEnrichAsync("Batman", MangaFormat.Archive, number: "5", isbn: "978-3-16-148410-0", source: MetadataSource.ComicVine);
+
+        await enrichmentService.Received(1).EnrichAsync(
+            Arg.Is<EnrichmentContext>(ctx =>
+                ctx.Series == "Batman" &&
+                ctx.Format == MangaFormat.Archive &&
+                ctx.Number == "5" &&
+                ctx.Isbn == "978-3-16-148410-0" &&
+                ctx.PreferredSource == MetadataSource.ComicVine),
+            Arg.Any<System.Threading.CancellationToken>());
+    }
+
     #endregion
 }

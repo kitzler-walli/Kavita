@@ -100,6 +100,13 @@
                              [placeholder]="t('enrich-search-placeholder')"
                              [disabled]="enrichLoading"
                              (keydown.enter)="searchEnrichment()">
+                      <select class="form-select form-select-sm" style="width: auto;"
+                              [(ngModel)]="enrichSource" [ngModelOptions]="{standalone: true}">
+                        <option [ngValue]="null">{{t('enrich-source-auto')}}</option>
+                        @for (provider of availableProviders; track provider.value) {
+                          <option [ngValue]="provider.value">{{t(provider.label)}}</option>
+                        }
+                      </select>
                       <button class="btn btn-outline-primary btn-sm flex-shrink-0"
                               [disabled]="enrichLoading || !enrichSearchTerm?.trim()"
                               (click)="searchEnrichment()">

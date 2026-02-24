@@ -89,6 +89,9 @@ public sealed record ReEnrichUploadDto
 {
     [Required] public required string SearchTerm { get; set; }
     [Required] public required MangaFormat Format { get; set; }
+    public string? Number { get; set; }
+    public string? Isbn { get; set; }
+    public MetadataSource? Source { get; set; }
 }
 
 public sealed record ReEnrichResultDto

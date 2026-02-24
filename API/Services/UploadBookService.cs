@@ -33,7 +33,8 @@ public interface IUploadBookService
     /// <summary>
     /// Re-enrich metadata using a custom search term. Not gated by EnableUploadEnrichment.
     /// </summary>
-    Task<ReEnrichResultDto> ReEnrichAsync(string searchTerm, MangaFormat format);
+    Task<ReEnrichResultDto> ReEnrichAsync(string searchTerm, MangaFormat format,
+        string? number = null, string? isbn = null, MetadataSource? source = null);
 }
 
 public class UploadBookService : IUploadBookService
@@ -334,7 +335,8 @@ public class UploadBookService : IUploadBookService
         return sanitized;
     }
 
-    public async Task<ReEnrichResultDto> ReEnrichAsync(string searchTerm, MangaFormat format)
+    public async Task<ReEnrichResultDto> ReEnrichAsync(string searchTerm, MangaFormat format,
+        string? number = null, string? isbn = null, MetadataSource? source = null)
     {
         var context = new EnrichmentContext
         {
@@ -343,12 +345,13 @@ public class UploadBookService : IUploadBookService
             Title = string.Empty,
             Writer = string.Empty,
             Volume = string.Empty,
-            Number = string.Empty,
-            Isbn = string.Empty,
+            Number = number ?? string.Empty,
+            Isbn = isbn ?? string.Empty,
             Summary = string.Empty,
             Publisher = string.Empty,
             Genre = string.Empty,
-            Year = 0
+            Year = 0,
+            PreferredSource = source,
         };
 
         try

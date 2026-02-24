@@ -187,6 +187,13 @@
                                [placeholder]="t('re-enrich-placeholder')"
                                [disabled]="reEnrichLoading.has(i)"
                                (keydown.enter)="reEnrich(i)">
+                        <select class="form-select form-select-sm" style="width: auto;"
+                                [(ngModel)]="reEnrichSources[i]" [ngModelOptions]="{standalone: true}">
+                          <option [ngValue]="null">{{t('enrich-source-auto')}}</option>
+                          @for (provider of getProvidersForFile(i); track provider.value) {
+                            <option [ngValue]="provider.value">{{t(provider.label)}}</option>
+                          }
+                        </select>
                         <button class="btn btn-outline-primary btn-sm flex-shrink-0"
                                 [disabled]="reEnrichLoading.has(i) || !reEnrichTerms[i]?.trim()"
                                 (click)="reEnrich(i)">

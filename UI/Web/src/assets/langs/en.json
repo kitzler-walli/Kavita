@@ -479,7 +479,11 @@
         "re-enrich-btn": "Look up",
         "re-enrich-success": "Metadata updated from external source",
         "re-enrich-no-results": "No metadata found for this search term",
-        "re-enrich-failed": "Metadata lookup failed. Please try again."
+        "re-enrich-failed": "Metadata lookup failed. Please try again.",
+        "enrich-source-auto": "{{edit-series-modal.enrich-source-auto}}",
+        "enrich-source-comicvine": "{{edit-series-modal.enrich-source-comicvine}}",
+        "enrich-source-openlibrary": "{{edit-series-modal.enrich-source-openlibrary}}",
+        "enrich-source-anilist": "{{edit-series-modal.enrich-source-anilist}}"
     },
 
     "client-device-card": {
@@ -2620,7 +2624,11 @@
         "enrich-apply": "Apply",
         "enrich-success": "External metadata applied",
         "enrich-no-results": "No metadata found for this search term",
-        "enrich-failed": "Metadata lookup failed"
+        "enrich-failed": "Metadata lookup failed",
+        "enrich-source-auto": "Auto",
+        "enrich-source-comicvine": "ComicVine",
+        "enrich-source-openlibrary": "Open Library",
+        "enrich-source-anilist": "AniList"
     },
 
     "edit-chapter-modal": {
@@ -2674,7 +2682,17 @@
         "last-read-label": "{{sort-field-pipe.read-progress}}",
         "range-hours": "{{value}} {{hourWord}}",
         "read-time-label": "Read Time",
-        "files-label": "Files"
+        "files-label": "Files",
+        "enrich-search-placeholder": "{{edit-series-modal.enrich-search-placeholder}}",
+        "enrich-btn": "{{edit-series-modal.enrich-btn}}",
+        "enrich-apply": "{{edit-series-modal.enrich-apply}}",
+        "enrich-success": "{{edit-series-modal.enrich-success}}",
+        "enrich-no-results": "{{edit-series-modal.enrich-no-results}}",
+        "enrich-failed": "{{edit-series-modal.enrich-failed}}",
+        "enrich-source-auto": "{{edit-series-modal.enrich-source-auto}}",
+        "enrich-source-comicvine": "{{edit-series-modal.enrich-source-comicvine}}",
+        "enrich-source-openlibrary": "{{edit-series-modal.enrich-source-openlibrary}}",
+        "enrich-source-anilist": "{{edit-series-modal.enrich-source-anilist}}"
     },
 
     "edit-volume-modal": {

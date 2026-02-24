@@ -545,7 +545,7 @@ public class UploadController : BaseApiController
     {
         try
         {
-            var result = await _uploadBookService.ReEnrichAsync(dto.SearchTerm, dto.Format);
+            var result = await _uploadBookService.ReEnrichAsync(dto.SearchTerm, dto.Format, dto.Number, dto.Isbn, dto.Source);
 
             return Ok(result);
         }

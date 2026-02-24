@@ -3,8 +3,11 @@ import {UtilityService} from "../../shared/_services/utility.service";
 import {FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators} from "@angular/forms";
 import {AsyncPipe, NgClass, NgTemplateOutlet, TitleCasePipe} from "@angular/common";
 import {NgbActiveModal, NgbNav, NgbNavContent, NgbNavItem, NgbNavLink, NgbNavOutlet} from "@ng-bootstrap/ng-bootstrap";
-import {TranslocoDirective} from "@jsverse/transloco";
+import {translate, TranslocoDirective} from "@jsverse/transloco";
+import {ToastrService} from "ngx-toastr";
 import {AccountService} from "../../_services/account.service";
+import {UploadBookService} from "../../_services/upload-book.service";
+import {MetadataSource, ReEnrichResultDto} from "../../_models/upload/upload-book-file-dto";
 import {Chapter} from "../../_models/chapter";
 import {LibraryType} from "../../_models/library/library";
 import {setupLanguageSettings, TypeaheadSettings} from "../../typeahead/_models/typeahead-settings";
@@ -107,6 +110,8 @@ export class EditChapterModalComponent implements OnInit {
   private readonly downloadService = inject(DownloadService);
   private readonly chapterService = inject(ChapterService);
   protected readonly breakpointService = inject(BreakpointService);
+  private readonly uploadBookService = inject(UploadBookService);
+  private readonly toastr = inject(ToastrService);
 
   @Input({required: true}) chapter!: Chapter;
   @Input({required: true}) libraryType!: LibraryType;
@@ -136,6 +141,11 @@ export class EditChapterModalComponent implements OnInit {
   size: number = 0;
   user!: User;
 
+  enrichSearchTerm = '';
+  enrichLoading = false;
+  enrichResult: ReEnrichResultDto | null = null;
+  enrichSource: MetadataSource | null = null;
+
   get WebLinks() {
     if (this.chapter.webLinks === '') return [];
     return this.chapter.webLinks.split(',');
@@ -145,6 +155,7 @@ export class EditChapterModalComponent implements OnInit {
 
   ngOnInit() {
     this.initChapter = Object.assign({}, this.chapter);
+    this.enrichSearchTerm = this.chapter.titleName || this.chapter.title || '';
     this.imageUrls.push(this.imageService.getChapterCoverImage(this.chapter.id));
 
     this.size = this.utilityService.asChapter(this.chapter).files.reduce((sum, v) => sum + v.bytes, 0);
@@ -226,6 +237,76 @@ export class EditChapterModalComponent implements OnInit {
 
   }
 
+
+  searchEnrichment() {
+    const term = this.enrichSearchTerm?.trim();
+    if (!term || this.enrichLoading) return;
+
+    this.enrichLoading = true;
+    this.enrichResult = null;
+    this.cdRef.markForCheck();
+
+    const format = this.chapter.files?.[0]?.format ?? MangaFormat.ARCHIVE;
+    this.uploadBookService.reEnrich(term, format, this.chapter.number || undefined, this.chapter.isbn || undefined, this.enrichSource ?? undefined).subscribe({
+      next: (result) => {
+        this.enrichLoading = false;
+        this.enrichResult = result;
+        if (!result.success) {
+          this.toastr.info(translate('edit-chapter-modal.enrich-no-results'));
+        }
+        this.cdRef.markForCheck();
+      },
+      error: () => {
+        this.enrichLoading = false;
+        this.toastr.error(translate('edit-chapter-modal.enrich-failed'));
+        this.cdRef.markForCheck();
+      }
+    });
+  }
+
+  applyEnrichment() {
+    if (!this.enrichResult?.success) return;
+
+    const r = this.enrichResult;
+
+    if (r.summary && !this.chapter.summaryLocked) {
+      this.editForm.get('summary')?.setValue(r.summary);
+    }
+
+    if (r.genre) {
+      const newGenres: Genre[] = r.genre.split(',').map(g => g.trim()).filter(g => g).map(g => ({id: 0, title: g}));
+      if (newGenres.length > 0) {
+        this.chapter.genres = newGenres;
+        this.chapter.genresLocked = true;
+        this.genreSettings.savedData = newGenres;
+      }
+    }
+
+    if (r.writer) {
+      const newWriters: Person[] = r.writer.split(',').map(w => w.trim()).filter(w => w).map(w => ({
+        id: 0, name: w, aliases: [], description: '', coverImageLocked: false, primaryColor: '', secondaryColor: ''
+      }));
+      if (newWriters.length > 0) {
+        this.metadataService.updatePerson(this.chapter, newWriters, PersonRole.Writer);
+        this.chapter.writerLocked = true;
+        if (this.peopleSettings[PersonRole.Writer]) {
+          this.peopleSettings[PersonRole.Writer].savedData = newWriters;
+        }
+      }
+    }
+
+    if (r.externalUrl) {
+      const existing = this.chapter.webLinks ? this.chapter.webLinks.split(',').filter(l => l) : [];
+      if (!existing.includes(r.externalUrl)) {
+        existing.push(r.externalUrl.replaceAll(',', '%2C'));
+        this.chapter.webLinks = existing.join(',');
+      }
+    }
+
+    this.toastr.success(translate('edit-chapter-modal.enrich-success'));
+    this.enrichResult = null;
+    this.cdRef.markForCheck();
+  }
 
   close() {
     this.modal.dismiss();
@@ -510,4 +591,20 @@ export class EditChapterModalComponent implements OnInit {
   protected readonly Action = Action;
   protected readonly PersonRole = PersonRole;
   protected readonly MangaFormat = MangaFormat;
+  protected readonly MetadataSource = MetadataSource;
+
+  get availableProviders(): {value: MetadataSource; label: string}[] {
+    const format = this.chapter.files?.[0]?.format ?? MangaFormat.ARCHIVE;
+    const providers: {value: MetadataSource; label: string}[] = [];
+    if (format === MangaFormat.ARCHIVE) {
+      providers.push({value: MetadataSource.ComicVine, label: 'enrich-source-comicvine'});
+      providers.push({value: MetadataSource.AniList, label: 'enrich-source-anilist'});
+    } else if (format === MangaFormat.EPUB) {
+      providers.push({value: MetadataSource.OpenLibrary, label: 'enrich-source-openlibrary'});
+      providers.push({value: MetadataSource.AniList, label: 'enrich-source-anilist'});
+    } else if (format === MangaFormat.PDF) {
+      providers.push({value: MetadataSource.OpenLibrary, label: 'enrich-source-openlibrary'});
+    }
+    return providers;
+  }
 }
